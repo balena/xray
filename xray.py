@@ -1,0 +1,20 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+# pstats.py - main module of XRay.
+#
+# Copyright (C) 2009 Guilherme Versiani <guibv@comunip.com.br>
+#
+# This software may be used and distributed according to the terms of the
+# GNU General Public License version 2, incorporated herein by reference.
+
+import sys
+
+try:
+    from xray.dispatch import run
+except ImportError:
+    sys.stderr.write("abort: couldn't find xray libraries in [%s]\n" %
+                     ' '.join(sys.path))
+    sys.stderr.write("(check your install and PYTHONPATH)\n")
+    sys.exit(-1)
+
+sys.exit(run())

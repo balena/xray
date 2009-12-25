@@ -1,0 +1,13 @@
+Metadata-Version: 1.0
+Name: xray
+Version: 1.0.0
+Summary: Coding Analysis for SCMs
+Home-page: http://xray.sourceforge.net/
+Author: Guilherme Balena Versiani
+Author-email: guibv@comunip.com
+License: GNU GPL
+Description: XRay is an analysis tool built upon your SCMs, aimed to
+  consolidade project statistics from many repositories at the same time,
+  generating code reports and development statistics from your repository log
+  data.
+Platform: Linux, Mac OSX, Windows XP/2000/NT, Windows 95/98/ME

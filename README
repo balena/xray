@@ -1,0 +1,25 @@
+XRay -- Coding Analysis for SCMs
+
+Patches can be submitted via
+ * mail to guibv@comunip.com.br
+ * Sourceforge: https://sourceforge.net/projects/xray/
+ * or work directly on hg, if you got write acces
+   ssh://xray.hg.sourceforge.net/hgroot/xray/xray
+
+
+REQUISITES:
+-----------
+
+ * cmdln >= 1.1.2
+ * SQLObject >= 0.12.0
+ * pysvn for support to SVN repositories
+
+
+INSTALLATION:
+-------------
+
+To install from hg or from source package, do:
+
+ $ python setup.py build
+ $ python setup.py install
+
