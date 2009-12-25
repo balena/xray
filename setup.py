@@ -28,7 +28,7 @@ if HAVE_PY2EXE:
 
 setup(
     name='xray',
-    version = xray.core.__version__,
+    version = xray.__version__,
     description = 'XRay: Coding Analysis for SCMs',
     long_description =
         'XRay is an analysis tool built upon your SCMs, aimed to '

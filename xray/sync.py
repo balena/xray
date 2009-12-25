@@ -5,11 +5,11 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2, incorporated herein by reference.
 
-import vcsrouter, error
+import scms, error
 from i18n import _
 
-def getStartEndRev(vcsclient, branch):
-    (startrev, endrev) = vcsclient.findStartEndRev()
+def getStartEndRev(scm, branch):
+    (startrev, endrev) = scm.findStartEndRev()
     startrev_db = branch.getLastRev()
     if startrev_db is not None:
         startrev = startrev_db+1
@@ -28,14 +28,14 @@ def execute(repo, ui):
 
        ui.writenl("  " + _("Branch %s:") % branch.name)
 
-       vcsclient = vcsrouter.get_instance(repo.url)
-       vcsclient.setBranch(branch.name)
+       scm = scms.createInstance(repo.url)
+       scm.setBranch(branch.name)
 
-       (startrev, endrev) = getStartEndRev(vcsclient, branch)
+       (startrev, endrev) = getStartEndRev(scm, branch)
        if startrev > endrev:
            raise error.Abort("Up-to-date.")
 
-       for revlog in vcsclient.iterrevisions(startrev, endrev):
+       for revlog in scm.iterrevisions(startrev, endrev):
            if not revlog.isvalid():
                continue
 

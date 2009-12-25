@@ -1,10 +1,13 @@
 '''
-svnlogiter.py
+svn.py - svn backend for XRay
+
+Original code: svnlogiter.py
 Copyright (C) 2009 Nitin Bhide (nitinbhide@gmail.com)
 
-This module is part of SVNPlot (http://code.google.com/p/svnplot) and is released under
-the New BSD License: http://www.opensource.org/licenses/bsd-license.php
---------------------------------------------------------------------------------------
+This module was part of SVNPlot (http://code.google.com/p/svnplot) and is
+released under the New BSD License:
+http://www.opensource.org/licenses/bsd-license.php
+-------------------------------------------------------------------------------
 
 This file implements the iterators to iterate over the subversion log.
 This is just a convinience interface over the pysvn module.
@@ -605,4 +608,12 @@ class SVNRevLog:
             logging.error("Error %s" % expinst)
             
         return(diffcountdict)
-                 
+
+def createInstance(url):
+    return SVNLogClient(url)
+
+def getDescription():
+    return {
+        'name'    : 'Subversion',
+        'example' : 'svn+http://some.host/some/path'
+    }

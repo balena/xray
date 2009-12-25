@@ -7,7 +7,7 @@
 
 import os, sys, errno, shutil
 import error, storage
-import vcsrouter, sync
+import scms, sync
 from i18n import _
 from ConfigParser import SafeConfigParser
 from string import Template
@@ -64,26 +64,28 @@ class CmdLine(cmdln.Cmdln):
 
         return optparser
 
-    # overridden from class Cmdln() to use VCS backends listing
+    # overridden from class Cmdln() to use SCM backends listing
     def _help_preprocess(self, help, cmdname):
         help = cmdln.Cmdln._help_preprocess(self, help, cmdname)
         preprocessors = {
-            '${vcs_backend_list}': self._help_preprocess_vcs_backend_list
+            '${scm_backend_list}': self._help_preprocess_scm_backend_list
         }
         for marker, preprocessor in preprocessors.items():
             if marker in help:
                 help = preprocessor(help, cmdname)
         return help
 
-    def _help_preprocess_vcs_backend_list(self, help, cmdname):
-        marker = "${vcs_backend_list}"
+    def _help_preprocess_scm_backend_list(self, help, cmdname):
+        marker = "${scm_backend_list}"
         indent, indent_width = cmdln._get_indent(marker, help)
         suffix = cmdln._get_trailing_whitespace(marker, help)
 
         backends = []
-        for key, backend in vcsrouter.__backends__.iteritems():
+        for key in scms.__all__:
+            impl = __import__(key, globals(), locals(), [], -1)
+            desc = impl.getDescription()
             backends.append('%s* %s: %s' %
-                (' '*indent_width, backend['name'], backend['example']))
+                (' '*indent_width, desc['name'], desc['example']))
         block = '\n'.join(backends) + '\n'
 
         help = help.replace(indent+marker+suffix, block, 1)
@@ -219,14 +221,14 @@ class CmdLine(cmdln.Cmdln):
         branches to make monitoring effective (see addbranch command). The format
         for REPOS is like the following:
 
-          ${vcs_backend_list}"""
+          ${scm_backend_list}"""
 
         self._loadConfig()
         rs = [ repos ]
         rs += [ r for r in repos_list ]
         for r in rs:
-            vcsclient = vcsrouter.get_instance(r)
-            if not vcsclient:
+            scm = scms.createInstance(r)
+            if not scm:
                 self._ui.warn(_("While adding repository %s:\n") % r)
                 self._ui.warn("abort: %s\n" %
                     _("There is no support for "
@@ -234,7 +236,7 @@ class CmdLine(cmdln.Cmdln):
                 continue
             if not opts.force:
                 try:
-                    (startrev, endrev) = vcsclient.findStartEndRev()
+                    (startrev, endrev) = scm.findStartEndRev()
                 except:
                     self._ui.warn(_("While adding repository %s:\n") % r)
                     self._ui.warn("abort: %s\n" %
@@ -394,8 +396,8 @@ class CmdLine(cmdln.Cmdln):
 
         self._ui.writenl(_('-- SQL backends:')+' '+
             ', '.join(storage.__backends__))
-        self._ui.writenl(_('-- VCS backends:')+' '+
-            ', '.join(vcsrouter.__backends__))
+        self._ui.writenl(_('-- SCM backends:')+' '+
+            ', '.join(scms.__all__))
 
     @alias('rep', 'r')
     @option("--all", action='store_true',
