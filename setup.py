@@ -4,7 +4,7 @@ from distutils.core import setup
 import distutils.command.build
 import distutils.command.install_data
 import os.path
-import xray.core
+import xray4scm
 import sys
 
 # optional support for py2exe
@@ -16,7 +16,7 @@ except:
 
 addparams = {}
 if HAVE_PY2EXE:
-    addparams['console'] = [{'script': 'xray.py', 'dest_base': 'xray'}]
+    addparams['console'] = [{'script': 'xray', 'dest_base': 'xray4scm'}]
     addparams['zipfile'] = 'shared.lib'
     addparams['options'] = {
         'py2exe': {
@@ -28,7 +28,7 @@ if HAVE_PY2EXE:
 
 setup(
     name='xray',
-    version = xray.__version__,
+    version = xray4scm.__version__,
     description = 'XRay: Coding Analysis for SCMs',
     long_description =
         'XRay is an analysis tool built upon your SCMs, aimed to '
@@ -42,7 +42,7 @@ setup(
     keywords = ['x-ray', 'coding', 'analysis', 'scm', 'svn', 'hg'],
     url = 'http://xray.sourceforge.net/',
     download_url = 'http://sourceforge.net/projects/xray/files/',
-    packages = ['xray'],
-    scripts = ['xray.py'],
+    packages = ['xray4scm'],
+    scripts = ['xray'],
     **addparams
 )

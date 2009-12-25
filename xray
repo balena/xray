@@ -10,7 +10,7 @@
 import sys
 
 try:
-    from xray.dispatch import run
+    from xray4scm.dispatch import run
 except ImportError:
     sys.stderr.write("abort: couldn't find xray libraries in [%s]\n" %
                      ' '.join(sys.path))
