@@ -34,7 +34,7 @@ setup(
         'XRay is an analysis tool built upon your SCMs, aimed to '
         'consolidade project statistics from many repositories at the same '
         'time, generating code reports and development statistics from '
-        'your repository log data.'
+        'your repository log data.',
     author = 'Guilherme Balena Versiani',
     author_email = 'guibv@comunip.com.br',
     license = 'GPL',
