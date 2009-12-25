@@ -12,7 +12,7 @@ import sys, unicodedata, locale, os
 _encodingfixup = {'646': 'ascii', 'ANSI_X3.4-1968': 'ascii'}
 
 try:
-    encoding = os.environ.get("HGENCODING")
+    encoding = os.environ.get("XRAYENCODING")
     if sys.platform == 'darwin' and not encoding:
         # On darwin, getpreferredencoding ignores the locale environment and
         # always returns mac-roman. We override this if the environment is
@@ -26,7 +26,7 @@ try:
         encoding = _encodingfixup.get(encoding, encoding)
 except locale.Error:
     encoding = 'ascii'
-encodingmode = os.environ.get("HGENCODINGMODE", "strict")
+encodingmode = os.environ.get("XRAYENCODINGMODE", "strict")
 fallbackencoding = 'ISO-8859-1'
 
 def tolocal(s):
@@ -55,7 +55,7 @@ def fromlocal(s):
     Convert a string from the local character encoding to UTF-8
 
     We attempt to decode strings using the encoding mode set by
-    HGENCODINGMODE, which defaults to 'strict'. In this mode, unknown
+    XRAYENCODINGMODE, which defaults to 'strict'. In this mode, unknown
     characters will cause an error message. Other modes include
     'replace', which replaces unknown characters with a special
     Unicode character, and 'ignore', which drops the character.

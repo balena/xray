@@ -33,7 +33,7 @@ def execute(repo, ui):
 
        (startrev, endrev) = getStartEndRev(scm, branch)
        if startrev > endrev:
-           raise error.Abort("Up-to-date.")
+           raise error.Abort(_("Up-to-date."))
 
        for revlog in scm.iterrevisions(startrev, endrev):
            if not revlog.isvalid():
@@ -48,7 +48,7 @@ def execute(repo, ui):
                rev.insertDetails(chg, fname, added, deleted)
 
        if revlog is None:
-           raise error.Abort("Up-to-date.")
+           raise error.Abort(_("Up-to-date."))
 
        ui.write("\n")
 
