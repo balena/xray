@@ -7,9 +7,9 @@
 # GNU General Public License version 2, incorporated herein by reference.
 
 import os, sys
-import error
-from util import parsedate
-from i18n import _
+import xray4scm.error as error
+from xray4scm.i18n import _
+from xray4scm.util import parsedate
 from sqlobject import *
 from sqlobject.sqlbuilder import *
 from sqlobject.dbconnection import TheURIOpener
