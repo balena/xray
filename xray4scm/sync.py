@@ -5,11 +5,11 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2, incorporated herein by reference.
 
-import scms, error
+import scm, error
 from i18n import _
 
-def getStartEndRev(scm, branch):
-    (startrev, endrev) = scm.findStartEndRev()
+def getStartEndRev(scminst, branch):
+    (startrev, endrev) = scminst.findStartEndRev()
     startrev_db = branch.getLastRev()
     if startrev_db is not None:
         startrev = startrev_db+1
@@ -28,14 +28,14 @@ def execute(repo, ui):
 
        ui.writenl("  " + _("Branch %s:") % branch.name)
 
-       scm = scms.createInstance(repo.url)
-       scm.setBranch(branch.name)
+       scminst = scm.createInstance(repo.url)
+       scminst.setBranch(branch.name)
 
-       (startrev, endrev) = getStartEndRev(scm, branch)
+       (startrev, endrev) = getStartEndRev(scminst, branch)
        if startrev > endrev:
            raise error.Abort(_("Up-to-date."))
 
-       for revlog in scm.iterrevisions(startrev, endrev):
+       for revlog in scminst.iterrevisions(startrev, endrev):
            if not revlog.isvalid():
                continue
 

@@ -7,7 +7,7 @@
 
 import os, sys, errno, shutil
 import error, storage
-import scms, sync
+import scm, sync
 from i18n import _
 from ConfigParser import SafeConfigParser
 from string import Template
@@ -81,7 +81,7 @@ class CmdLine(cmdln.Cmdln):
         suffix = cmdln._get_trailing_whitespace(marker, help)
 
         backends = []
-        for key in scms.__all__:
+        for key in scm.__all__:
             impl = __import__(key, globals(), locals(), [], -1)
             desc = impl.getDescription()
             backends.append('%s* %s: %s' %
@@ -227,8 +227,8 @@ class CmdLine(cmdln.Cmdln):
         rs = [ repos ]
         rs += [ r for r in repos_list ]
         for r in rs:
-            scm = scms.createInstance(r)
-            if not scm:
+            scminst = scm.createInstance(r)
+            if not scminst:
                 self._ui.warn(_("While adding repository %s:\n") % r)
                 self._ui.warn("abort: %s\n" %
                     _("There is no support for "
@@ -236,7 +236,7 @@ class CmdLine(cmdln.Cmdln):
                 continue
             if not opts.force:
                 try:
-                    (startrev, endrev) = scm.findStartEndRev()
+                    (startrev, endrev) = scminst.findStartEndRev()
                 except:
                     self._ui.warn(_("While adding repository %s:\n") % r)
                     self._ui.warn("abort: %s\n" %
@@ -397,7 +397,7 @@ class CmdLine(cmdln.Cmdln):
         self._ui.writenl(_('-- SQL backends:')+' '+
             ', '.join(storage.__backends__))
         self._ui.writenl(_('-- SCM backends:')+' '+
-            ', '.join(scms.__all__))
+            ', '.join(scm.__all__))
 
     @alias('rep', 'r')
     @option("--all", action='store_true',
