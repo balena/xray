@@ -248,14 +248,14 @@ class Revision(SQLObject):
     commitdate = TimestampCol(default=datetime.now(), notNone=True)
     details = MultipleJoin('RevisionDetails')
 
-    def insertDetails(self, type, filepath, added, deleted):
+    def insertDetails(self, type, filepath):
         try:
             details = RevisionDetails.byRevisionChangedPath(revision=self,
                     changedpath=filepath)
         except SQLObjectNotFound as nf:
             fp = FilePath.fromFilePath(filepath)
             details = RevisionDetails(revision=self, changedpath=fp,
-                changetype=type, linesadded=added, linesdeleted=deleted)
+                changetype=type)
         except: raise
         return details
 
@@ -279,8 +279,6 @@ class RevisionDetails(SQLObject):
     changedpath = ForeignKey('FilePath', cascade=False)
     revisionChangedPath = DatabaseIndex(revision, changedpath, unique=True)
     changetype = EnumCol(enumValues=['A', 'M', 'D'])
-    linesadded = IntCol(notNone=True)
-    linesdeleted = IntCol(notNone=True)
 
     @staticmethod
     def byRevisionChangedPath(revision, changedpath):
@@ -329,10 +327,12 @@ class BranchFilePath(SQLObject):
     filepathBranch = DatabaseIndex(filepath, branch, unique=True)
 
 class Loc(SQLObject):
-    report = ForeignKey('Report', cascade=True)
-    filepath = ForeignKey('BranchFilePath', cascade=True)
-    reportFilepath = DatabaseIndex(report, filepath, unique=True)
-    loc = IntCol(notNone=True)
+    language = ForeignKey('Language', cascade=True)
+    revisionDetails = ForeignKey('RevisionDetails', cascade=True)
+    languageRevisionDetails = DatabaseIndex(language, revisionDetails, unique=True)
+    code = IntCol(notNone=True)
+    comments = IntCol(notNone=True)
+    blanks = IntCol(notNone=True)
 
 if __name__ == "__main__":
     import pydot

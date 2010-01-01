@@ -45,7 +45,8 @@ def execute(repo, ui):
            for fname, chg, added, deleted in revlog.getDiffLineCount(True):
                fname = fname[len('/'+branch.name):]
                if fname == "": fname = '/'
-               rev.insertDetails(chg, fname, added, deleted)
+               rev.insertDetails(chg, fname)
+	       # TODO insert Loc counter here
 
        if revlog is None:
            raise error.Abort(_("Up-to-date."))
