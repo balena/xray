@@ -377,6 +377,8 @@ class CmdLine(cmdln.Cmdln):
         self._loadConfig()
         if len(repos) == 0:
             repos = self._storage.repositories
+        else:
+            repos = [storage.Repository.byArg(r) for r in repos]
 
         for r in repos:
             try:
