@@ -420,4 +420,7 @@ if __name__ == "__main__":
 
     open('entities.dot', 'wb').write(g.to_string())
 
+    print "Generated 'entities.dot', now execute 'dot':"
+    print "    dot -Tpng -o entities.png entities.dot"
+
 # Modeline for vim: set tw=79 et ts=4:
