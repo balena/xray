@@ -49,7 +49,7 @@ def execute(repo, ui):
            if not revlog.isvalid():
                continue
 
-           ui.write(" [%d]" % revlog.revno)
+           ui.write("  %d " % revlog.revno)
            trans = storage.transaction()
 
            try:
@@ -70,7 +70,7 @@ def execute(repo, ui):
                        file = os.fdopen(fd, 'wb')
                        file.write(contents)
                        file.close()
-                       print "%s -> %s" % (tmppath, fname)
+                       ui.write('.')
                        sf_list.add_file(tmppath)
                        sourcefiles[tmppath] = details
 
@@ -88,10 +88,16 @@ def execute(repo, ui):
                        os.remove(sf.filepath) # remove temp file
 
            except:
+               from glob import glob
+               # cleanup temp files
+               tmpfiles = glob('./.xray/tmp*')
+               for t in tmpfiles:
+                   os.remove(t)
                trans.rollback()
                raise
 
            trans.commit(close=True)
+           ui.write('done\n')
 
        if revlog is None:
            raise error.Abort(_("Up-to-date."))
