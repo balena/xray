@@ -13,104 +13,74 @@ from sqlobject import connectionForURI
 from sqlobject.sqlbuilder import *
 from sqlobject.dbconnection import TheURIOpener
 
-__all__ = [
-'Metadata', 'Author', 'Language', 'File', 'Path', 'FilePath', 'Repository',
-'Branch', 'Tag', 'Revision', 'RevisionDetails', 'Module', 'ModuleContent',
-'Report', 'DuplicateReport', 'Duplicate', 'BranchFilePath', 'Loc', 'Storage',
-'connectionForURI'
-]
+__all__ = entities.__all__ + [ 'Storage', 'connectionForURI' ]
 
-class Storage(object):
-    """
-    Storage base class for storage that uses the SQLObject wrappers.
-    This offers the convenience of simply having to declare the SQLObject
-    classes as a class variable and their connection gets initialized
-    automatically.
-    """
+_connection = None
 
-    _sqlobject_classes = [
-        Metadata,
-        Author,
-        Language,
-        File,
-        Path,
-        FilePath,
-        Repository,
-        Branch,
-        Tag,
-        Revision,
-        RevisionDetails,
-        Module,
-        ModuleContent,
-        Report,
-        DuplicateReport,
-        Duplicate,
-        BranchFilePath,
-        Loc
-    ]
+def init(connection):
+    for cls in entities.__all__:
+        globals()[cls]._connection = connection
+    globals()['_connection'] = connection
 
-    def __init__(self, connection):
-        assert self._sqlobject_classes
-        for cls in self._sqlobject_classes:
-            cls._connection = connection
+def transaction():
+    return globals()['_connection'].transaction()
 
-    def _defineVersion(self):
-        m = Metadata(version=1)
+def _defineVersion():
+    m = Metadata(version=1)
 
-    def create(self):
-        """Checks if database tables exist and if they don't, creates them."""
-        for cls in self._sqlobject_classes:
-            cls.createTable(ifNotExists=True)
-        Metadata.clearTable()
-        self._defineVersion()
+def create():
+    """Checks if database tables exist and if they don't, creates them."""
+    for cls in entities.__all__:
+        globals()[cls].createTable(ifNotExists=True)
+    Metadata.clearTable()
+    _defineVersion()
 
-    def clear(self):
-        """Clears the entries/tables."""
-        for cls in self._sqlobject_classes:
-            cls.dropTable()
-            cls.createTable()
-        self._defineVersion()
+def clear():
+    """Clears the entries/tables."""
+    for cls in entities.__all__:
+        globals()[cls].dropTable()
+        globals()[cls].createTable()
+    _defineVersion()
 
-    def drop(self):
-        """Drops all database tables."""
-        for cls in self._sqlobject_classes:
-            cls.dropTable()
+def drop():
+    """Drops all database tables."""
+    for cls in entities.__all__:
+        globals()[cls].dropTable()
 
-    def checkVersion(self, e=error.Abort(_('Invalid database version'))):
-        try:
-            res = Metadata.select(Metadata.q.version == 1).count() == 1
-        except:
-            if e: raise e
-            return False
-        if not res and e:
-            raise e
-        return res
+def checkVersion(e=error.Abort(_('Invalid database version'))):
+    try:
+        res = Metadata.select(Metadata.q.version == 1).count() == 1
+    except:
+        if e: raise e
+        return False
+    if not res and e:
+        raise e
+    return res
 
-    def __getattr__(self, name):
-        if name == 'repositories':
-            return list( Repository.select() )
+def getRepositories():
+    return list( Repository.select() )
 
-    def addRepos(self, repo_url):
-        r = Repository.select(Repository.q.url == repo_url).getOne(None)
-        if r:
-            raise error.Abort(_("This repository already exists"
-                    " with id = %d.") % r.id)
-        return Repository(url=repo_url)
+def addRepos(repo_url):
+    r = Repository.select(Repository.q.url == repo_url).getOne(None)
+    if r:
+        raise error.Abort(_("This repository already exists"
+                " with id = %d.") % r.id)
+    return Repository(url=repo_url)
 
-    def addBranch(self, repo, branch):
-        r = Repository.byArg(repo)
-        b = Branch.select(AND(Branch.q.repository == r.id,
-                Branch.q.name == branch)).getOne(None)
-        if b:
-            raise error.Abort(_("This branch already exists."))
-        b = Branch(repository=r, name=branch)
+def addBranch(repo, branch):
+    r = Repository.byArg(repo)
+    b = Branch.select(AND(Branch.q.repository == r.id,
+            Branch.q.name == branch)).getOne(None)
+    if b:
+        raise error.Abort(_("This branch already exists."))
+    b = Branch(repository=r, name=branch)
 
-    def rmBranch(self, repo, branch):
-        r = Repository.byArg(repo)
-        b = Branch.select(AND(Branch.q.repository == r.id, Branch.q.name == branch)).getOne(None)
-        if not b:
-            raise error.Abort(_("Branch not found."))
-        Branch.delete(b.id)
+def rmBranch(repo, branch):
+    r = Repository.byArg(repo)
+    b = Branch.select(AND(Branch.q.repository == r.id, Branch.q.name == branch)).getOne(None)
+    if not b:
+        raise error.Abort(_("Branch not found."))
+    Branch.delete(b.id)
 
 __backends__= TheURIOpener.schemeBuilders.keys()
 

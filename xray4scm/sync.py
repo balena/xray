@@ -7,6 +7,16 @@
 
 import scm, error
 from i18n import _
+import os, tempfile
+import storage
+
+try:
+    import ohcount
+except ImportError:
+    print "Please install ohcount Python extension. For the time this code " \
+          "was written, the only available ohcount fork with Python " \
+          "extension is located at http://github.com/balena/ohcount."
+    raise
 
 def getStartEndRev(scminst, branch):
     (startrev, endrev) = scminst.findStartEndRev()
@@ -40,13 +50,48 @@ def execute(repo, ui):
                continue
 
            ui.write(" [%d]" % revlog.revno)
-           rev = branch.insertRevision(revlog.revno, revlog.author,
-                   revlog.message, revlog.date)
-           for fname, chg, added, deleted in revlog.getDiffLineCount(True):
-               fname = fname[len('/'+branch.name):]
-               if fname == "": fname = '/'
-               rev.insertDetails(chg, fname)
-	       # TODO insert Loc counter here
+           trans = storage.transaction()
+
+           try:
+               rev = branch.insertRevision(revlog.revno, revlog.author,
+                       revlog.message, revlog.date, connection=trans)
+
+               sourcefiles = {}
+               sf_list = ohcount.SourceFileList()
+               for fname, chg, added, deleted in revlog.getDiffLineCount(False):
+                   details = rev.insertDetails(chg, fname, connection=trans)
+                   isfile = chg is not 'D' and \
+                            not scminst.isDirectory(revlog.revno, fname, chg) \
+                            and not scminst.isBinaryFile(fname, revlog.revno)
+                   if isfile:
+                       contents = scminst.cat(fname, revlog.revno)
+                       (root, ext) = os.path.splitext(fname)
+                       (fd, tmppath) = tempfile.mkstemp(ext, 'tmp', dir='./.xray/')
+                       file = os.fdopen(fd, 'wb')
+                       file.write(contents)
+                       file.close()
+                       print "%s -> %s" % (tmppath, fname)
+                       sf_list.add_file(tmppath)
+                       sourcefiles[tmppath] = details
+
+               if len(sourcefiles) > 0:
+                   for sf in sf_list:
+                       details = sourcefiles.get(sf.filepath)
+                       for loc in sf.locs:
+                           details.insertLoc(
+                               language=loc.language,
+                               code=loc.code,
+                               comments=loc.comments,
+                               blanks=loc.blanks,
+                               connection=trans
+                           )
+                       os.remove(sf.filepath) # remove temp file
+
+           except:
+               trans.rollback()
+               raise
+
+           trans.commit(close=True)
 
        if revlog is None:
            raise error.Abort(_("Up-to-date."))

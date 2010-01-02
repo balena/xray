@@ -101,11 +101,11 @@ class CmdLine(cmdln.Cmdln):
             sqldb = sqldb.replace('sqlite://.', 'sqlite:/'+prefix)
         self._sqldb = sqldb
         try:
-            self._connection = storage.connectionForURI(self._sqldb)
+            connection = storage.connectionForURI(self._sqldb)
         except:
             raise error.Abort(_("Error connecting to"
                     " database %s" % self._sqldb))
-        self._storage = storage.Storage(self._connection)
+        storage.init(connection)
 
     def _loadConfig(self):
         dest = os.getcwd()
@@ -116,7 +116,7 @@ class CmdLine(cmdln.Cmdln):
         self._config.read(os.path.join(xraydir, 'storage.conf'))
         sqldb = self._config.get('Storage', 'sqldb')
         self._connectToDatabase(sqldb)
-        self._storage.checkVersion()
+        storage.checkVersion()
 
     @alias('create')
     @option("--db", metavar='SQLDB-URI',
@@ -171,11 +171,11 @@ class CmdLine(cmdln.Cmdln):
 
         sqldb = opts.db or self._defaultSqlDb
         self._connectToDatabase(sqldb)
-        if self._storage.checkVersion(None):
+        if storage.checkVersion(None):
             self.stdout.write(_('Found a valid database, '
                     'no tables will be created\n'))
         else:
-            self._storage.create()
+            storage.create()
 
         self._config.add_section('Storage')
         self._config.set('Storage', 'sqldb', sqldb)
@@ -194,7 +194,7 @@ class CmdLine(cmdln.Cmdln):
         !!!Use this command with caution.!!!"""
 
         self._loadConfig()
-        self._storage.drop()
+        storage.drop()
 
     @alias('clr')
     def do_clear(self, subcmd, opts):
@@ -207,7 +207,7 @@ class CmdLine(cmdln.Cmdln):
         !!!Use this command with caution.!!!"""
 
         self._loadConfig()
-        self._storage.clear()
+        storage.clear()
 
     @alias('addr')
     @cmdln.option('--force', action='store_true',
@@ -244,7 +244,7 @@ class CmdLine(cmdln.Cmdln):
                           "Please check it and try again."))
                     continue
 
-            repo = self._storage.addRepos(r)
+            repo = storage.addRepos(r)
             self._ui.writenl(_("Added repository with id = %d.") % repo.id)
 
     @alias('rmr')
@@ -297,7 +297,7 @@ class CmdLine(cmdln.Cmdln):
         bs += [ b for b in branch_list ]
         r = storage.Repository.byArg(repos)
         for b in bs:
-            self._storage.addBranch(r, b)
+            storage.addBranch(r, b)
  
     @alias('rmb')
     def do_rmbranch(self, subcmd, opts, repos, branch, *branch_list):
@@ -318,7 +318,7 @@ class CmdLine(cmdln.Cmdln):
         bs += [ b for b in branch_list ]
         r = storage.Repository.byArg(repos)
         for b in bs:
-            self._storage.rmBranch(r, b)
+            storage.rmBranch(r, b)
  
     @alias('ls', 'l')
     def do_list(self, subcmd, opts, *repos):
@@ -338,7 +338,7 @@ class CmdLine(cmdln.Cmdln):
          ${cmd_option_list}"""
 
         self._loadConfig()
-        for r in self._storage.repositories:
+        for r in storage.getRepositories():
             self._ui.writenl(
                 "repo-id:      %d\n"
                 "repo-url:     %s\n"
@@ -376,7 +376,7 @@ class CmdLine(cmdln.Cmdln):
 
         self._loadConfig()
         if len(repos) == 0:
-            repos = self._storage.repositories
+            repos = storage.getRepositories()
         else:
             repos = [storage.Repository.byArg(r) for r in repos]
 
