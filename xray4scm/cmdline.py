@@ -382,7 +382,7 @@ class CmdLine(cmdln.Cmdln):
 
         for r in repos:
             try:
-                sync.execute(r, self._ui)
+                sync.execute(r, self._ui, self.options.verbose)
             except error.Abort as inst:
                 self._ui.warn("abort: %s\n" % inst)
             except:

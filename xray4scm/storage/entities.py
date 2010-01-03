@@ -237,7 +237,7 @@ class RevisionDetails(SQLObject):
     revision = ForeignKey('Revision', cascade=True)
     changedpath = ForeignKey('FilePath', cascade=False)
     revisionChangedPath = DatabaseIndex(revision, changedpath, unique=True)
-    changetype = EnumCol(enumValues=['A', 'M', 'D'])
+    changetype = EnumCol(enumValues=['A', 'M', 'D', 'R'])
 
     @staticmethod
     def byRevisionChangedPath(revision, changedpath, connection=None):

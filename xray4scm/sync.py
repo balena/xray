@@ -28,7 +28,7 @@ def getStartEndRev(scminst, branch):
             raise error.Abort(_("There is no revision to sync."))
     return (startrev, endrev)
 
-def execute(repo, ui):
+def execute(repo, ui, verbose):
    ui.writenl(_("Synchronizing repo %s...") % repo.url)
    repo.markAsUpdated()
 
@@ -41,66 +41,92 @@ def execute(repo, ui):
        scminst = scm.createInstance(repo.url)
        scminst.setBranch(branch.name)
 
-       (startrev, endrev) = getStartEndRev(scminst, branch)
+       try:
+           (startrev, endrev) = getStartEndRev(scminst, branch)
+       except error.Abort as inst:
+           ui.warn('abort: %s\n' % inst)
+           continue
+       except: raise
+
        if startrev > endrev:
-           raise error.Abort(_("Up-to-date."))
+           ui.warn('abort: %s\n' % _("Up-to-date."))
+           continue
 
        for revlog in scminst.iterrevisions(startrev, endrev):
            if not revlog.isvalid():
                continue
 
-           ui.write("  %d " % revlog.revno)
-           trans = storage.transaction()
+           revfiles = revlog.getDiffLineCount(False)
 
-           try:
-               rev = branch.insertRevision(revlog.revno, revlog.author,
-                       revlog.message, revlog.date, connection=trans)
+           if len(revfiles) > 0:
 
-               sourcefiles = {}
-               sf_list = ohcount.SourceFileList()
-               for fname, chg, added, deleted in revlog.getDiffLineCount(False):
-                   details = rev.insertDetails(chg, fname, connection=trans)
-                   isfile = chg is not 'D' and \
-                            not scminst.isDirectory(revlog.revno, fname, chg) \
-                            and not scminst.isBinaryFile(fname, revlog.revno)
-                   if isfile:
-                       contents = scminst.cat(fname, revlog.revno)
-                       (root, ext) = os.path.splitext(fname)
-                       (fd, tmppath) = tempfile.mkstemp(ext, 'tmp', dir='./.xray/')
-                       file = os.fdopen(fd, 'wb')
-                       file.write(contents)
-                       file.close()
-                       ui.write('.')
-                       sf_list.add_file(tmppath)
-                       sourcefiles[tmppath] = details
+               try:
+                   ui.write("  %d " % revlog.revno)
+                   ui.flush()
+                   trans = storage.transaction()
 
-               if len(sourcefiles) > 0:
-                   for sf in sf_list:
-                       details = sourcefiles.get(sf.filepath)
-                       for loc in sf.locs:
-                           details.insertLoc(
-                               language=loc.language,
-                               code=loc.code,
-                               comments=loc.comments,
-                               blanks=loc.blanks,
-                               connection=trans
-                           )
-                       os.remove(sf.filepath) # remove temp file
+                   rev = branch.insertRevision(revlog.revno, revlog.author,
+                           revlog.message, revlog.date, connection=trans)
 
-           except:
-               from glob import glob
-               # cleanup temp files
-               tmpfiles = glob('./.xray/tmp*')
-               for t in tmpfiles:
-                   os.remove(t)
-               trans.rollback()
-               raise
+                   sourcefiles = {}
+                   sf_list = ohcount.SourceFileList()
 
-           trans.commit(close=True)
-           ui.write('done\n')
+                   for fname, chg, added, deleted in revlog.getDiffLineCount(False):
+                       if verbose == 1:
+                           ui.write('\n   %s %s' % (chg, fname))
+                           ui.flush()
+                       details = rev.insertDetails(chg, fname, connection=trans)
+                       isfile = chg is not 'D' and \
+                                not scminst.isDirectory(revlog.revno, fname, chg) \
+                                and not scminst.isBinaryFile(fname, revlog.revno)
+                       if isfile:
+                           contents = scminst.cat(fname, revlog.revno)
+                           (root, ext) = os.path.splitext(fname)
+                           (fd, tmppath) = tempfile.mkstemp(ext, 'tmp', dir='./.xray/')
+                           file = os.fdopen(fd, 'wb')
+                           file.write(contents)
+                           file.close()
+                           if verbose != 1:
+                               ui.write('.')
+                               ui.flush()
+                           sf_list.add_file(tmppath)
+                           sourcefiles[tmppath] = details
+
+                   if len(sourcefiles) > 0:
+                       for sf in sf_list:
+                           details = sourcefiles.get(sf.filepath)
+                           for loc in sf.locs:
+                               details.insertLoc(
+                                   language=loc.language,
+                                   code=loc.code,
+                                   comments=loc.comments,
+                                   blanks=loc.blanks,
+                                   connection=trans
+                               )
+                           os.remove(sf.filepath) # remove temp file
+
+                       trans.commit(close=True)
+
+                   else:
+                       trans.rollback()
+
+                   ui.write('done\n')
+                   ui.flush()
+
+               except:
+                   from glob import glob
+                   # cleanup temp files
+                   tmpfiles = glob('./.xray/tmp*')
+                   for t in tmpfiles:
+                       os.remove(t)
+                   trans.rollback()
+                   raise
 
        if revlog is None:
-           raise error.Abort(_("Up-to-date."))
+           ui.warn('abort: %s\n' % _("Up-to-date."))
+           continue
 
        ui.write("\n")
+       ui.flush()
+
 
