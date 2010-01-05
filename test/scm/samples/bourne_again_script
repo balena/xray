@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# This is a bash script
+Usage() {
+	ProgName=`basename "$0"`
+	echo "sample script
+Usage: $ProgName [-h] ..."
+	exit
+}
+
+for arg
+do
+	case "$arg" in
+	-h|--help|-help)
+		Usage ;;
+	esac
+done
