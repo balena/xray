@@ -2,18 +2,31 @@ from config import *
 from framework import *
 import os, shutil
 
-def setUp():
-    rmdir(TEMP_DIR)
-    os.mkdir(TEMP_DIR)
+cwd = os.getcwd()
 
-    svnadmin('create', TEMP_REPO)
+def operations(exchlist=[], removelist=[]):
+    if len(exchlist) == 0 and len(removelist) == 0:
+        return
+    os.chdir(getclonedir())
+    for a, b in exchlist:
+        os.rename(a, a+'.tmp')
+        os.rename(b, a)
+        os.rename(a+'.tmp', b)
+    for removal in removelist:
+        svn('delete', removal)
+    svn('commit', '-m', 'doing some file manipulations')
+    os.chdir(cwd)
+
+def setUp():
+    rmdir_rf(gettempdir())
+    os.mkdir(gettempdir())
+
+    svnadmin('create', getrepodir())
 
     for dir in ('/branches', '/tags', '/trunk'):
-        svn('mkdir', getrepourl()+dir,
-            '-m', 'initial structure')
+        svn('mkdir', getrepourl(dir), '-m', 'initial structure')
 
-    cwd = os.getcwd()
-    svn('co', getrepourl()+'/trunk', TEMP_CLONE)
+    svn('co', getrepourl('/trunk'), getclonedir())
 
     imps = {
         'initial import' : ['ActionscriptFile.as', 'CMakeLists.txt'],
@@ -52,11 +65,11 @@ def setUp():
 
     for log, files in imps.iteritems():
         for file in files:
-            shutil.copy(SAMPLES+os.sep+file, TEMP_CLONE)
-            os.chdir(TEMP_CLONE)
+            shutil.copy(getsamplesdir(file), getclonedir())
+            os.chdir(getclonedir())
             svn('add', file)
             os.chdir(cwd)
-        os.chdir(TEMP_CLONE)
+        os.chdir(getclonedir())
         svn('commit', '-m', log)
         os.chdir(cwd)
 
@@ -71,17 +84,28 @@ def setUp():
 
     removals = [ 'foo.cmake', 'bash_script' ]
 
-    os.chdir(TEMP_CLONE)
-    for a, b in exchanges:
-        os.rename(a, a+'.tmp')
-        os.rename(b, a)
-        os.rename(a+'.tmp', b)
-    for removal in removals:
-        svn('delete', removal)
-    svn('commit', '-m', 'doing some file manipulations')
-    os.chdir(cwd)
+    operations(exchanges, removals)
 
-    rmdir(TEMP_CLONE)
+    rmdir_rf(getclonedir())
+
+    # create a new branch and do some random operations
+    svn('copy', getrepourl('/trunk'), getrepourl('/branches/1.0'),
+        '-m', 'Creating a private branch of trunk')
+
+    svn('co', getrepourl('/branches/1.0'), getclonedir())
+
+    exchanges = [
+        ('Makefile', 'Makefile.am'),
+        ('TCPSocket.m', 'blitzmax.bmx'),
+        ('bourne_again_script', 'clearsilver_template1.cs'),
+        ('configure', 'configure.in'),
+    ]
+
+    removals = [ 'foo_upper_case.C', 'foo_upper_case.RB' ]
+
+    operations(exchanges, removals)
+
+    rmdir_rf(getclonedir())
 
 if __name__ == '__main__':
     setUp()
