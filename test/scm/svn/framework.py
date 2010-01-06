@@ -20,7 +20,9 @@ def getrepourl(rel_path=''):
     if len(rel_path):
         rel_path.replace('/', os.sep)
         path += os.sep + rel_path
-    return 'file:'+urllib.pathname2url(path)
+    url = urllib.pathname2url(path)
+    url.lstrip('/')
+    return 'file:///'+url
 
 def getpath(basedir, rel_path):
     str.strip(rel_path, '/') # remove leading and trailing slashes
