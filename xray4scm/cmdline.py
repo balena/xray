@@ -236,7 +236,7 @@ class CmdLine(cmdln.Cmdln):
                 continue
             if not opts.force:
                 try:
-                    (startrev, endrev) = scminst.findStartEndRev()
+                    (startrev, endrev) = scminst.getrevrange()
                 except:
                     self._ui.warn(_("While adding repository %s:\n") % r)
                     self._ui.warn("abort: %s\n" %

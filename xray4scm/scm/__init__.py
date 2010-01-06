@@ -18,4 +18,4 @@ def createInstance(url):
     else:
         raise NotImplementedError("No support for this SCM schema: '%s'" % url)
 
-    return impl.createInstance(url[len(key)+1:])
+    return impl.Client(url[len(key)+1:])
