@@ -5,10 +5,10 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2, incorporated herein by reference.
 
-import scm
+import scmbase
 import pysvn, getpass, datetime
 
-class Client(scm.Client):
+class Client(scmbase.Client):
 
     def __init__(self, repo_url):
         self._repo_url = repo_url
@@ -130,7 +130,7 @@ class Client(scm.Client):
             for revision in revisions:
                 yield Revision(self, revision)
 
-class Revision(scm.Revision):
+class Revision(scmbase.Revision):
 
     def __init__(self, parent, base):
         self.parent         = parent
@@ -160,7 +160,7 @@ class Revision(scm.Revision):
         for change in self._changed_paths:
             yield Change(self, change)
 
-class Change(scm.Change):
+class Change(scmbase.Change):
 
     def __init__(self, parent, base):
         self.parent             = parent
@@ -197,7 +197,7 @@ class Change(scm.Change):
             return None
         return self._copyfrom_revision
 
-class Path(scm.Path):
+class Path(scmbase.Path):
 
     def __init__(self, parent, filepath):
         self.parent    = parent
