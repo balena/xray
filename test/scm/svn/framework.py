@@ -15,20 +15,20 @@ def rmdir_rf(dir):
     subprocess.check_call(['rm', '-rf', dir])
 
 def getrepourl(rel_path=''):
-    str.strip(rel_path, '/') # remove leading and trailing slashes
+    rel_path = rel_path.strip('/') # remove leading and trailing slashes
     path = os.getcwd() + os.sep + TEMP_REPO
     if len(rel_path):
-        rel_path.replace('/', os.sep)
+        rel_path = rel_path.replace('/', os.sep)
         path += os.sep + rel_path
     url = urllib.pathname2url(path)
-    url.lstrip('/')
+    url = url.lstrip('/')
     return 'file:///'+url
 
 def getpath(basedir, rel_path):
-    str.strip(rel_path, '/') # remove leading and trailing slashes
+    rel_path = rel_path.strip('/') # remove leading and trailing slashes
     path = basedir
     if len(rel_path) and rel_path != '.':
-        rel_path.replace('/', os.sep)
+        rel_path = rel_path.replace('/', os.sep)
         path += os.sep + rel_path
     return path
 
