@@ -7,7 +7,7 @@
 
 import os, sys, errno, shutil
 import error, storage
-import scm, sync
+import scm, sync, report
 from i18n import _
 from ConfigParser import SafeConfigParser
 from string import Template
@@ -420,9 +420,17 @@ class CmdLine(cmdln.Cmdln):
          ${cmd_option_list}"""
 
         self._loadConfig()
-        rs = [ repos ]
-        rs += [ r for r in repos_list ]
-        for r in rs:
-            pass
+        if len(repos) == 0:
+            repos = storage.getRepositories()
+        else:
+            repos = [storage.Repository.byArg(r) for r in repos]
+
+        for r in repos:
+            try:
+                report.execute(r, self._ui, self.options.verbose)
+            except error.Abort as inst:
+                self._ui.warn("abort: %s\n" % inst)
+            except:
+                raise
 
 # Modeline for vim: set tw=79 et ts=4:
