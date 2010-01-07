@@ -4,12 +4,13 @@
 XRay -- Coding Analysis for SCMs
 ================================
 
+
 Patches can be submitted via:
 
 - preferrably creating an account at Bitbucket and forking
   [xray project](http://bitbucket.org/balena/xray/).
 - [Sourceforge bugtracking](https://sourceforge.net/projects/xray/).
-- mail patches to guibv <att> comunip.com.br
+- mail patches to guibv att comunip.com.br
 - or work directly on hg, if you got write access
   ssh://xray.hg.sourceforge.net/hgroot/xray/xray
 
@@ -32,39 +33,40 @@ To install from hg or from source package, do:
     python setup.py build
     python setup.py install
 
+
 Usage:
 ------
 
 To create a new XRay base, you will need a new empty directory:
 
-    mkdir repos
-    cd repos
-    xray init
+    $ mkdir repos
+    $ cd repos
+    $ xray init
 
 It is possible to delegate database operations to a centralized one:
 
-    xray init --db=mysql://user:password@host/database 
+    $ xray init --db=mysql://user:password@host/database 
 
 Then, you add a bunch of repositories and branches:
 
-    xray addrepos svn+http://some.domain/path/to/repos
-    xray addbranch svn+http://some.domain/path/to/repos trunk branches/1.0
+    $ xray addrepos svn+http://some.domain/path/to/repos
+    $ xray addbranch svn+http://some.domain/path/to/repos trunk branches/1.0
 
 Now it is time to get things in sync (take a time to a coffee):
 
-    xray sync
+    $ xray sync
 
 If you want to update just one repository, do:
 
-    xray sync svn+http://some.domain/path/to/repos
+    $ xray sync svn+http://some.domain/path/to/repos
 
 Whenever you need to create reports, do:
 
-    xray report
+    $ xray report
 
 Have fun!
 
 
 Authors:
 --------
-Guilherme Balena Versiani - guibv <att> comunip.com.br
+Guilherme Balena Versiani - guibv at comunip.com.br
