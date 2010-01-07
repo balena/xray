@@ -1,0 +1,9 @@
+- id: loc
+  title: Lines of Code
+  collector:
+    - Loc
+    - code: true
+      comments: true
+      blanks: true
+  aggregator: null
+  output: loc.png
