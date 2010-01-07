@@ -13,7 +13,7 @@ def createInstance(url):
     impl = None
     for key in __all__:
         if url.startswith(key+'+') or url.startswith(key+','):
-            impl = __import__(key, globals(), locals(), [], -1)
+            impl = __import__(key)
             break
     else:
         raise NotImplementedError("No support for this SCM schema: '%s'" % url)

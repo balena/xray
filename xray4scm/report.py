@@ -8,7 +8,7 @@
 import error, storage
 from i18n import _
 import os
-import collector
+import collectors, aggregators
 
 def execute(repo, ui, verbose):
     pass

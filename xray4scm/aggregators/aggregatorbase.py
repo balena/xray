@@ -1,4 +1,4 @@
-# collectorbase.py - collector base class XRay reports
+# aggregatorbase.py - collector base class XRay reports
 #
 # Copyright (C) 2009-2010 Guilherme Versiani <guibv@comunip.com.br>
 #
@@ -8,15 +8,15 @@
 import abc
 from abc import abstractmethod, abstractproperty
 
-class Collector(object):
+class Aggregator(object):
     __metaclass__ = abc.ABCMeta
 
     @abstractmethod
-    def __init__(self, repo, **kwargs):
+    def __init__(self, **kwargs):
         pass
 
     @abstractmethod
-    def sample(self, chart):
+    def aggregate(self, xdata, ydata):
         pass
 
 # Modeline for vim: set tw=79 et ts=4:
