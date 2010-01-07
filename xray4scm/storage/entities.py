@@ -17,7 +17,7 @@ from datetime import datetime
 
 __all__ = [
 'Metadata', 'Author', 'Language', 'File', 'Path', 'FilePath', 'Repository',
-'Branch', 'Revision', 'RevisionDetails', 'Loc'
+'Branch', 'Revision', 'Change', 'Loc'
 ]
 
 class Metadata(SQLObject):
@@ -205,23 +205,22 @@ class Revision(SQLObject):
     author = ForeignKey('Author', notNone=True, cascade=False)
     log = UnicodeCol(length=600, notNone=True)
     commitdate = TimestampCol(default=datetime.now(), notNone=True)
-    details = MultipleJoin('RevisionDetails')
+    changes = MultipleJoin('Change')
 
-    def insertDetails(self, type, filepath, connection=None):
+    def insertChange(self, type, filepath, connection=None):
         try:
-            details = RevisionDetails.byRevisionChangedPath(revision=self,
-                    changedpath=filepath)
+            changes = Change.byRevisionPath(revision=self, path=filepath)
         except SQLObjectNotFound as nf:
             fp = FilePath.fromFilePath(filepath, connection=connection)
             try:
-                details = RevisionDetails(revision=self, changedpath=fp,
+                changes = Change(revision=self, path=fp,
                     changetype=type, connection=connection)
             except DuplicateEntryError as inst:
-                details = RevisionDetails.byRevisionChangedPath(revision=self,
-                        changedpath=filepath, connection=connection)
+                changes = Change.byRevisionPath(revision=self,
+                        path=filepath, connection=connection)
             except: raise
         except: raise
-        return details
+        return changes
 
     @staticmethod
     def byRevisionBranch(revno, branch, connection=None):
@@ -233,20 +232,20 @@ class Revision(SQLObject):
             connection=connection
         ).getOne()
 
-class RevisionDetails(SQLObject):
+class Change(SQLObject):
     revision = ForeignKey('Revision', cascade=True)
-    changedpath = ForeignKey('FilePath', cascade=False)
-    revisionChangedPath = DatabaseIndex(revision, changedpath, unique=True)
+    path = ForeignKey('FilePath', cascade=False)
+    revisionPath = DatabaseIndex(revision, path, unique=True)
     changetype = EnumCol(enumValues=['A', 'M', 'D', 'R'])
 
     @staticmethod
-    def byRevisionChangedPath(revision, changedpath, connection=None):
-        (dir, name, ext) = FilePath.breakNames(changedpath)
+    def byRevisionPath(revision, path, connection=None):
+        (dir, name, ext) = FilePath.breakNames(path)
         return Repository.select(
             AND(File.q.name == name, Path.q.path == dir,
-                  RevisionDetails.q.revision == revision),
-            join=[INNERJOINOn(Revision, RevisionDetails, Revision.q.id == RevisionDetails.q.revision),
-                  INNERJOINOn(None, FilePath, RevisionDetails.q.changedpath == FilePath.q.id),
+                  Change.q.revision == revision),
+            join=[INNERJOINOn(Revision, Change, Revision.q.id == Change.q.revision),
+                  INNERJOINOn(None, FilePath, Change.q.path == FilePath.q.id),
                   INNERJOINOn(None, File, FilePath.q.file == File.q.id),
                   INNERJOINOn(None, Path, FilePath.q.path == Path.q.id)],
             connection=connection
@@ -254,11 +253,11 @@ class RevisionDetails(SQLObject):
 
     def insertLoc(self, language, code, comments, blanks, connection=None):
         try:
-            loc = Loc.byLanguageRevisionDetails(language, self)
+            loc = Loc.byLanguageChange(language, self)
         except SQLObjectNotFound as nf:
             loc = Loc(
                 language=Language.fromLanguage(language, connection),
-                revisionDetails=self,
+                change=self,
                 code=code,
                 comments=comments,
                 blanks=blanks,
@@ -269,18 +268,18 @@ class RevisionDetails(SQLObject):
 
 class Loc(SQLObject):
     language = ForeignKey('Language', cascade=True)
-    revisionDetails = ForeignKey('RevisionDetails', cascade=True)
-    languageRevisionDetails = DatabaseIndex(language, revisionDetails, unique=True)
+    change = ForeignKey('Change', cascade=True)
+    languageChange = DatabaseIndex(language, change, unique=True)
     code = IntCol(notNone=True)
     comments = IntCol(notNone=True)
     blanks = IntCol(notNone=True)
 
     @staticmethod
-    def byLanguageRevisionDetails(language, revisionDetails):
+    def byLanguageChange(language, change):
         language = Language.byLanguage(language)
         return Loc.select(
             AND(Loc.q.language == language,
-                Loc.q.revisionDetails == revisionDetails)
+                Loc.q.change == change)
         ).getOne()
 
 if __name__ == "__main__":

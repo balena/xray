@@ -73,8 +73,6 @@ class SyncRevision(object):
         self.ui          = parent.ui
         self.verbose     = parent.verbose
         self.scmrev      = scmrev
-        self.sf_list     = ohcount.SourceFileList()
-        self.sourcefiles = {}
 
     def process(self):
         if self.verbose == 1:
@@ -93,29 +91,14 @@ class SyncRevision(object):
             connection=self.trans
         )
 
-        changes = []
         try:
             for change in self.scmrev.iterchanges():
-                sync_change = SyncChange(self, change)
-                changes.append(sync_change)
-                sync_change.process()
-            if len(self.sourcefiles) > 0:
-                for sf in self.sf_list:
-                    details = self.sourcefiles.get(sf.filepath)
-                    for loc in sf.locs:
-                        details.insertLoc(
-                            language=loc.language,
-                            code=loc.code,
-                            comments=loc.comments,
-                            blanks=loc.blanks,
-                            connection=self.trans
-                        )
-                self.trans.commit(close=True)
-            else:
-                self.trans.rollback()
+                SyncChange(self, change).process()
         except:
             self.trans.rollback()
             raise
+
+        self.trans.commit(close=True)
 
         if self.verbose != 1:
             self.ui.writenl('done')
@@ -129,10 +112,6 @@ class SyncChange(object):
         self.verbose = parent.verbose
         self.change  = change
 
-    def __del__(self):
-        if hasattr(self, 'tmppath') and os.path.exists(self.tmppath):
-            os.remove(self.tmppath)
-
     def process(self):
         path = self.change.path
 
@@ -140,7 +119,7 @@ class SyncChange(object):
             self.ui.writenl('  %s %s' % (self.change.changetype, path))
             self.ui.flush()
 
-        details = self.parent.storrev.insertDetails(
+        details = self.parent.storrev.insertChange(
             self.change.changetype, str(path), connection=self.parent.trans)
 
         if self.change.changetype == 'D' or self.change.changetype == 'R':
@@ -150,21 +129,26 @@ class SyncChange(object):
         if path.isbinary():
             return
 
-        (fd, tmppath) = tempfile.mkstemp(path.ext, 'tmp', dir='./.xray/')
         contents = self.parent.parent.scminst.cat(
             self.parent.scmrev.id, str(path))
 
-        file = os.fdopen(fd, 'wb')
-        file.write(contents)
-        file.close()
+        sf = ohcount.SourceFile(filename=str(path), contents=contents)
+        for loc in sf.locs:
+            details.insertLoc(
+                language=loc.language,
+                code=loc.code,
+                comments=loc.comments,
+                blanks=loc.blanks,
+                connection=self.parent.trans
+            )
+            if self.verbose == 1:
+                self.ui.writenl('    (lang=%s,code=%d,comments=%d,blanks=%d)'%\
+                    (loc.language, loc.code, loc.comments, loc.blanks))
+                self.ui.flush()
 
         if self.verbose != 1:
             self.ui.write('.')
             self.ui.flush()
-
-        self.tmppath = tmppath
-        self.parent.sf_list.add_file(self.tmppath)
-        self.parent.sourcefiles[self.tmppath] = details
 
 def execute(repo, ui, verbose):
     Sync(repo, ui, verbose).process()
