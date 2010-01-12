@@ -12,11 +12,11 @@ class Collector(object):
     __metaclass__ = abc.ABCMeta
 
     @abstractmethod
-    def __init__(self, repo, **kwargs):
+    def __init__(self, **kwargs):
         pass
 
     @abstractmethod
-    def collect(self, chart):
+    def collect(self, repo):
         pass
 
 # Modeline for vim: set tw=79 et ts=4:
