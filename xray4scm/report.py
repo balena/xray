@@ -34,6 +34,20 @@ class attrdict(dict):
         except KeyError:
             raise AttributeError("attrdict object has no attribute '%s'" % attr)
 
+def construct_chart(chart):
+    try:
+        cls = getattr(collectors, chart.collector)
+        chart.collector = cls(**chart)
+    except AttributeError:
+        raise error.Abort(_("No such collector: %s") % chart.collector)
+    if hasattr(chart, 'aggregator') and chart.aggregator is not None:
+        try:
+            chart.aggregator = getattr(aggregators, chart.aggregator)
+        except AttributeError:
+            raise error.Abort(_("No such aggregator: %s") % chart.aggregator)
+    else:
+        chart.aggregator = lambda xdata, ydata: (xdata, ydata)
+
 def get_charts():
 
     def construct_map(loader, node):
@@ -49,15 +63,9 @@ def get_charts():
     charts = yaml.load(cfg)
 
     for chart in charts:
-        try:
-            cls = getattr(collectors, chart.collector)
-            chart.collector = cls(**chart)
-        except AttributeError:
-            raise error.Abort(_("No such collector: %s") % chart.collector)
-        try:
-            chart.aggregator = getattr(aggregators, chart.aggregator)
-        except AttributeError:
-            raise error.Abort(_("No such aggregator: %s") % chart.aggregator)
+        construct_chart(chart)
+
+    return charts
 
 def collect_data(charts, repo):
     for chart in charts:
