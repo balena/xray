@@ -101,14 +101,14 @@ def render(charts):
             ax.set_xscale(chart.xscale[0], chart.xscale[1])
         if 'yscale' in chart:
             ax.set_yscale(chart.yscale[0], chart.yscale[1])
+        if 'grid' in chart:
+            ax.grid(chart.grid)
 
         p, l = [], []
         mode = hasattr(collector, 'mode') and collector.mode or None
         for (xdata, ydata, kwargs) in collector.data:
             xdata, ydata = chart.aggregator(xdata, ydata)
-            if mode == 'date':
-                ax.plot_date(xdata, ydata, **kwargs)
-            elif mode == 'fill':
+            if mode == 'fill':
                 ax.fill_between(xdata, ydata, **kwargs)
             else:
                 ax.plot(xdata, ydata, **kwargs)
@@ -121,6 +121,16 @@ def render(charts):
                 l.append( kwargs['label'] )
 
         ax.legend(p, l, loc='upper left', ncol=len(p), shadow=True)
+
+        if hasattr(collector, 'format_xdata'):
+            ax.xaxis.set_major_formatter(collector.format_xdata)
+        if hasattr(collector, 'format_ydata'):
+            ax.yaxis.set_major_formatter(collector.format_ydata)
+        if hasattr(collector, 'xaxis_date') and collector.xaxis_date:
+            fig.autofmt_xdate()
+        if hasattr(collector, 'yaxis_date') and collector.yaxis_date:
+            fig.autofmt_ydate()
+
         fig.savefig(chart.get('output', "chart-%d.png" % (i + 1)))
 
 def execute(repo, ui, verbose):

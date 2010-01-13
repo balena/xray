@@ -6,6 +6,8 @@
 # GNU General Public License version 2, incorporated herein by reference.
 
 import collectorbase
+import matplotlib.dates as mdates
+import datetime
 
 class Loc(collectorbase.Collector):
 
@@ -15,7 +17,7 @@ class Loc(collectorbase.Collector):
         self.blanks = 'blanks' in kwargs and kwargs['blanks'] or False
 
     def collect(self, repo):
-        x = [ i for i in xrange(0,11) ]
+        x = [ datetime.datetime.fromtimestamp(i) for i in xrange(0,11) ]
         y1 = [ i*i for i in xrange(0,11) ]
         y2 = [ 2*i*i for i in xrange(0,11) ]
         y3 = [ 3*i*i for i in xrange(0,11) ]
@@ -25,5 +27,7 @@ class Loc(collectorbase.Collector):
             (x, y1, dict(label='code',color='#3f5578')),
         ]
         self.mode = 'fill'
+        self.format_xdata = mdates.DateFormatter('%b %Y')
+        self.xaxis_date = True
 
 # Modeline for vim: set tw=79 et ts=4:
