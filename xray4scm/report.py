@@ -11,6 +11,7 @@ import os, pkgutil
 import collectors, aggregators
 
 import matplotlib
+from matplotlib.patches import Rectangle
 matplotlib.use('Agg')
 from matplotlib import pyplot
 import yaml
@@ -50,14 +51,14 @@ def construct_chart(chart):
 
 def get_charts():
 
-    def construct_map(loader, node):
+    def attrdict_constructor(loader, node):
         data = attrdict()
         yield data
         value = loader.construct_mapping(node)
         data.update(value)
 
     # Create attrdict instances instead of dict instances.
-    yaml.add_constructor(u'tag:yaml.org,2002:map', construct_map)
+    yaml.add_constructor(u'tag:yaml.org,2002:map', attrdict_constructor)
 
     cfg = pkgutil.get_data('xray4scm', 'charts.yaml')
     charts = yaml.load(cfg)
@@ -74,18 +75,52 @@ def collect_data(charts, repo):
 def render(charts):
     for i, chart in enumerate(charts):
         collector = chart.collector
+
         fig = pyplot.figure()
         if 'title' in chart:
             fig.suptitle(chart.title)
+
         ax = fig.add_subplot(1, 1, 1)
         if 'xlabel' in chart:
-            ax.set_xlabel(chart.xlabel)
+            xlabel = chart.xlabel
+            if isinstance(xlabel, dict):
+                ax.set_xlabel(**xlabel)
+            else:
+                ax.set_xlabel(xlabel)
         if 'ylabel' in chart:
-            ax.set_ylabel(chart.ylabel)
-        for label, (xdata, ydata) in collector.data.iteritems():
+            ylabel = chart.ylabel
+            if isinstance(ylabel, dict):
+                ax.set_ylabel(**ylabel)
+            else:
+                ax.set_ylabel(ylabel)
+        if 'xlim' in chart:
+            ax.set_xlim(chart.xlim[0], chart.xlim[1])
+        if 'ylim' in chart:
+            ax.set_ylim(chart.ylim[0], chart.ylim[1])
+        if 'xscale' in chart:
+            ax.set_xscale(chart.xscale[0], chart.xscale[1])
+        if 'yscale' in chart:
+            ax.set_yscale(chart.yscale[0], chart.yscale[1])
+
+        p, l = [], []
+        mode = hasattr(collector, 'mode') and collector.mode or None
+        for (xdata, ydata, kwargs) in collector.data:
             xdata, ydata = chart.aggregator(xdata, ydata)
-            ax.plot(xdata, ydata, chart.get('linestyle', '-'), label=label)
-        ax.legend(loc='upper left')
+            if mode == 'date':
+                ax.plot_date(xdata, ydata, **kwargs)
+            elif mode == 'fill':
+                ax.fill_between(xdata, ydata, **kwargs)
+            else:
+                ax.plot(xdata, ydata, **kwargs)
+
+            if 'label' in kwargs:
+                args = {}
+                if 'color' in kwargs:
+                    args['fc'] = kwargs['color']
+                p.append( Rectangle((0, 0), 1, 1, **args) )
+                l.append( kwargs['label'] )
+
+        ax.legend(p, l, loc='upper left', ncol=len(p), shadow=True)
         fig.savefig(chart.get('output', "chart-%d.png" % (i + 1)))
 
 def execute(repo, ui, verbose):

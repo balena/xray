@@ -15,12 +15,15 @@ class Loc(collectorbase.Collector):
         self.blanks = 'blanks' in kwargs and kwargs['blanks'] or False
 
     def collect(self, repo):
-        x = [ i for i in xrange(1,10) ]
-        y1 = [ i*i for i in xrange(1,10) ]
-        y2 = [ i*i*i for i in xrange(1,10) ]
-        self.data = {
-            'data #1': (x,y1),
-            'data #2': (x,y2),
-        }
+        x = [ i for i in xrange(0,11) ]
+        y1 = [ i*i for i in xrange(0,11) ]
+        y2 = [ 2*i*i for i in xrange(0,11) ]
+        y3 = [ 3*i*i for i in xrange(0,11) ]
+        self.data = [
+            (x, y3, dict(label='blanks',color='#96afd6')),
+            (x, y2, dict(label='comments',color='#597db9')),
+            (x, y1, dict(label='code',color='#3f5578')),
+        ]
+        self.mode = 'fill'
 
 # Modeline for vim: set tw=79 et ts=4:
