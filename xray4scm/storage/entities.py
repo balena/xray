@@ -154,12 +154,12 @@ class Repository(SQLObject):
             Repository.q.id == self.id,
             join=INNERJOINOn(Repository, Revision,
                     Repository.q.id == Revision.q.repository)
-        ).max(Revision.q.commitdate) or default
+        ).max(Revision.q.date) or default
 
     def markAsUpdated(self):
         self.set(updated=datetime.now())
 
-    def insertRevision(self, revno, author, log, commitdate, connection=None):
+    def insertRevision(self, revno, author, log, date, connection=None):
         try:
             a = Author.byName(author)
         except SQLObjectNotFound as nf:
@@ -175,7 +175,7 @@ class Repository(SQLObject):
         except SQLObjectNotFound as nf:
             try:
                 r = Revision(repository=self, revno=revno, author=author,
-                        log=log, commitdate=commitdate, connection=connection)
+                        log=log, date=date, connection=connection)
             except DuplicateEntryError as inst:
                 r = Revision.byRevisionRepository(revno=revno, repository=self,
                         connection=connection)
@@ -272,11 +272,11 @@ class Branch(SQLObject):
         )
 
     def getFirstRev(self, repository, default=None):
-        return self.selectRevisions(repository).min(Revision.q.commitdate) \
+        return self.selectRevisions(repository).min(Revision.q.date) \
             or default
 
     def getLastRev(self, repository, default=None):
-        return self.selectRevisions(repository).max(Revision.q.commitdate) \
+        return self.selectRevisions(repository).max(Revision.q.date) \
             or default
 
     @staticmethod
@@ -327,7 +327,7 @@ class Revision(SQLObject):
     revnoRepos = DatabaseIndex(revno, repository, unique=True)
     author = ForeignKey('Author', notNone=True, cascade=False)
     log = UnicodeCol(length=600, notNone=True)
-    commitdate = TimestampCol(default=datetime.now(), notNone=True)
+    date = TimestampCol(default=datetime.now(), notNone=True)
     changes = MultipleJoin('Change')
 
     @property
@@ -451,7 +451,7 @@ class Change(SQLObject):
         code, comments, blanks = self.getLoc(language)
         last_change = Change.select(
             AND(Change.q.path == self.path,
-                Revision.q.commitdate < revision.commitdate),
+                Revision.q.date < revision.date),
             join=[INNERJOINOn(Change, Revision, Change.q.revision == Revision.q.id)]
         ).limit(1).getOne(None)
         if last_change is None:

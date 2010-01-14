@@ -92,22 +92,19 @@ class Client(scmbase.Client):
             limit=1
         )
 
-        startrevno, endrevno = 0, 0
-        if startrev != None and len(startrev) > 0:
-            startrevno = startrev[0].revision.number
-            endrevno = headrev.number
+        if startrev == None or len(startrev) == 0:
+            return (None, None)
 
-        return (startrevno, endrevno)
+        startrev = Revision(self, startrev[0])
+        endrev = Revision(self, self._getrev(headrev.number))
+        return (startrev, endrev)
 
     def exists(self):
-        try:
-            self.getrevrange()
-        except:
-            return False
+        self.getrevrange()
         return True
 
-    def getrev(self, revno):
-        revision = self.svnclient.log(
+    def _getrev(self, revno, detailedLog=True):
+        return self.svnclient.log(
             self.repo_url,
             revision_start=pysvn.Revision(pysvn.opt_revision_kind.number, revno),
             revision_end=pysvn.Revision(pysvn.opt_revision_kind.number, revno),
@@ -115,7 +112,8 @@ class Client(scmbase.Client):
             limit=1,
         )[0]
 
-        return Revision(revision)
+    def getrev(self, revno, detailedLog=True):
+        return Revision(self, self._getrev(revno, detailedLog))
 
     def opts(self):
         return dict(
@@ -172,7 +170,7 @@ class Revision(scmbase.Revision):
         return (path, part)
 
     @property
-    def id(self):
+    def revno(self):
         return self._revno
 
     @property
@@ -194,7 +192,6 @@ class Revision(scmbase.Revision):
 class Change(scmbase.Change):
 
     def __init__(self, parent, base, path, branch=None, tag=None):
-        print path, branch, tag
         self.parent             = parent
         self._path              = path
         self._action            = base.action
@@ -237,7 +234,8 @@ class Change(scmbase.Change):
     def cat(self):
         return self.parent.parent.svnclient.cat(
             self.parent.parent.repo_path(self.path._realpath),
-            revision=pysvn.Revision(pysvn.opt_revision_kind.number, self.parent.id)
+            revision=pysvn.Revision(pysvn.opt_revision_kind.number,
+                        self.parent.revno)
         )
 
     def _copyFromPath(self):
@@ -262,9 +260,9 @@ class Path(scmbase.Path):
         revision = change.parent
         client = revision.parent
         if change.changetype == 'D':
-            revno = revision.id-1
+            revno = revision.revno-1
         else:
-            revno = revision.id
+            revno = revision.revno
         node = client.svnclient.info2(
             client.repo_path(self._realpath),
             revision=pysvn.Revision(pysvn.opt_revision_kind.number, revno),
@@ -280,7 +278,7 @@ class Path(scmbase.Path):
         client = revision.parent
         (rev, propdict) = client.svnclient.revproplist(
             client.repo_path(self._realpath),
-            pysvn.Revision(pysvn.opt_revision_kind.number, revision.id)
+            pysvn.Revision(pysvn.opt_revision_kind.number, revision.revno)
         )
         isbin = False #if explicit mime-type is not found assumes 'text'
         if 'svn:mime-type' in propdict:

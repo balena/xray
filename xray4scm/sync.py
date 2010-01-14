@@ -26,12 +26,14 @@ class Sync(object):
         self.scminst = scm.createInstance(repo.scm, repo.url, **repo.scmOpts)
 
     def getrevrange(self):
+        start, end = 0, 0
         (startrev, endrev) = self.scminst.getrevrange()
-        if startrev != 0 and endrev != 0:
+        if startrev != None and endrev != None:
+            start, end = startrev.revno, endrev.revno
             dbstartrev = self.repo.getLastRev()
             if dbstartrev is not None:
-                startrev = dbstartrev+1 # TODO
-        return (startrev, endrev)
+                start = dbstartrev.revno+1 # TODO
+        return start, end
 
     def process(self):
         self.ui.writenl(_("Synchronizing repo %s...") % self.repo.url)
@@ -56,15 +58,15 @@ class SyncRevision(object):
 
     def process(self):
         if self.verbose == 1:
-            self.ui.writenl('--- Revision %d ---' % self.scmrev.id)
+            self.ui.writenl('--- Revision %d ---' % self.scmrev.revno)
             self.ui.flush()
         else:
-            self.ui.write("  %d " % self.scmrev.id)
+            self.ui.write("  %d " % self.scmrev.revno)
             self.ui.flush()
 
         self.trans = storage.transaction()
         self.storrev = self.parent.repo.insertRevision(
-            self.scmrev.id,
+            self.scmrev.revno,
             self.scmrev.author,
             self.scmrev.message,
             self.scmrev.date,

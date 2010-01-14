@@ -36,7 +36,7 @@ class Revision(object):
     __metaclass__ = abc.ABCMeta
 
     @abstractproperty
-    def id(self):
+    def revno(self):
         pass
 
     @abstractproperty
