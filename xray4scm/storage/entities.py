@@ -232,6 +232,15 @@ class Revision(SQLObject):
             connection=connection
         ).getOne()
 
+    def getLocDiff(self, language=None):
+        code, comments, blanks = 0, 0, 0
+        for change in self.changes:
+            (c_code, c_comments, c_blanks) = change.getLocDiff(self, language)
+            code += c_code
+            comments += c_comments
+            blanks += c_blanks
+        return (code, comments, blanks)
+
 class Change(SQLObject):
     revision = ForeignKey('Revision', cascade=True)
     path = ForeignKey('FilePath', cascade=False)
@@ -241,7 +250,7 @@ class Change(SQLObject):
     @staticmethod
     def byRevisionPath(revision, path, connection=None):
         (dir, name, ext) = FilePath.breakNames(path)
-        return Repository.select(
+        return Change.select(
             AND(File.q.name == name, Path.q.path == dir,
                   Change.q.revision == revision),
             join=[INNERJOINOn(Revision, Change, Revision.q.id == Change.q.revision),
@@ -265,6 +274,39 @@ class Change(SQLObject):
             )
         except: raise
         return loc
+
+    def getLoc(self, language=None):
+        if language is None:
+            query = Loc.select(
+                Change.q.id == self.id,
+                join=[INNERJOINOn(Loc, Change, Loc.q.change == Change.q.id)]
+            )
+        else:
+            query = Loc.select(
+                AND(Change.q.id == self.id,
+                    Language.q.language == language),
+                join=[INNERJOINOn(Loc, Change, Loc.q.change == Change.q.id),
+                      INNERJOINOn(None, Language, Loc.q.language == Language.q.id)]
+            )
+        code = query.sum(Loc.q.code)
+        comments = query.sum(Loc.q.comments)
+        blanks = query.sum(Loc.q.blanks)
+        if code is None: code = 0
+        if comments is None: comments = 0
+        if blanks is None: blanks = 0
+        return (code, comments, blanks)
+
+    def getLocDiff(self, revision, language=None):
+        code, comments, blanks = self.getLoc(language)
+        last_change = Change.select(
+            AND(Change.q.path == self.path,
+                Revision.q.commitdate < revision.commitdate),
+            join=[INNERJOINOn(Change, Revision, Change.q.revision == Revision.q.id)]
+        ).limit(1).getOne(None)
+        if last_change is None:
+            return (code, comments, blanks)
+        last_code, last_comments, last_blanks = last_change.getLoc(language)
+        return (code-last_code, comments-last_comments, blanks-last_blanks)
 
 class Loc(SQLObject):
     language = ForeignKey('Language', cascade=True)

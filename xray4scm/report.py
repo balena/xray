@@ -68,12 +68,12 @@ def get_charts():
 
     return charts
 
-def collect_data(charts, repo):
+def collect_data(charts, branch):
     for chart in charts:
-        chart.collector.collect(repo)
+        chart.collector.collect(branch)
 
 def render(charts):
-    for i, chart in enumerate(charts):
+    for chart in charts:
         collector = chart.collector
 
         fig = pyplot.figure()
@@ -131,11 +131,12 @@ def render(charts):
         if hasattr(collector, 'yaxis_date') and collector.yaxis_date:
             fig.autofmt_ydate()
 
-        fig.savefig(chart.get('output', "chart-%d.png" % (i + 1)))
+        fig.savefig(collector.output)
 
 def execute(repo, ui, verbose):
-    charts = get_charts()
-    collect_data(charts, repo)
-    render(charts)
+    for branch in repo.branches:
+        charts = get_charts()
+        collect_data(charts, branch)
+        render(charts)
 
 # Modeline for vim: set tw=79 et ts=4:
