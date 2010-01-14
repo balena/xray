@@ -18,6 +18,8 @@ class Client(scmbase.Client):
         self.svnclient = pysvn.Client()
         self._repo_root_url = None
 
+        self._branches_regex = svn_branches_regex
+        self._tags_regex = svn_tags_regex
         self._branches_reobj = re.compile(svn_branches_regex)
         self._tags_reobj = re.compile(svn_tags_regex)
 
@@ -97,6 +99,13 @@ class Client(scmbase.Client):
 
         return (startrevno, endrevno)
 
+    def exists(self):
+        try:
+            self.getrevrange()
+        except:
+            return False
+        return True
+
     def getrev(self, revno):
         revision = self.svnclient.log(
             self.repo_url,
@@ -108,10 +117,10 @@ class Client(scmbase.Client):
 
         return Revision(revision)
 
-    def cat(self, revno, filepath):
-        return self.svnclient.cat(
-            self.repo_path(filepath),
-            revision=pysvn.Revision(pysvn.opt_revision_kind.number, revno)
+    def opts(self):
+        return dict(
+            svn_branches_regex = self._branches_regex,
+            svn_tags_regex = self._tags_regex
         )
 
     def iterrevs(self, startrev=0, endrev=0, detailedLog=True, cache=1):
@@ -142,18 +151,18 @@ class Revision(scmbase.Revision):
         self._changes = []
         for change in base.changed_paths:
             (path, branch) = Revision.splitpath(change.path,
-                    self._branches_reobj)
+                    self.parent._branches_reobj)
             if branch is not None:
                 self._changes.append( Change(self, change, path, branch=branch) )
                 continue
             (path, tag) = Revision.splitpath(change.path,
-                    self._tags_reobj)
+                    self.parent._tags_reobj)
             if tag is not None:
                 self._changes.append( Change(self, change, path, tag=tag) )
                 continue
             self._changes.append( Change(self, change, path) )
 
-    @abstractmethod
+    @staticmethod
     def splitpath(path, reobj):
         match = reobj.search(path)
         if match is None:
@@ -185,6 +194,7 @@ class Revision(scmbase.Revision):
 class Change(scmbase.Change):
 
     def __init__(self, parent, base, path, branch=None, tag=None):
+        print path, branch, tag
         self.parent             = parent
         self._path              = path
         self._action            = base.action
@@ -223,6 +233,12 @@ class Change(scmbase.Change):
 
     def getorigin(self):
         return (self._copyFromPath(), self._copyFromRevision())
+
+    def cat(self):
+        return self.parent.parent.svnclient.cat(
+            self.parent.parent.repo_path(self.path._realpath),
+            revision=pysvn.Revision(pysvn.opt_revision_kind.number, self.parent.id)
+        )
 
     def _copyFromPath(self):
         if self._copyfrom_path is None:

@@ -23,14 +23,14 @@ class Sync(object):
         self.repo    = repo
         self.ui      = ui
         self.verbose = verbose
-        self.scminst = scm.createInstance(parent.repo.url)
+        self.scminst = scm.createInstance(repo.scm, repo.url, **repo.scmOpts)
 
     def getrevrange(self):
         (startrev, endrev) = self.scminst.getrevrange()
         if startrev != 0 and endrev != 0:
-            dbstartrev = self.branch.getLastRev()
+            dbstartrev = self.repo.getLastRev()
             if dbstartrev is not None:
-                startrev = dbstartrev+1
+                startrev = dbstartrev+1 # TODO
         return (startrev, endrev)
 
     def process(self):
@@ -111,12 +111,9 @@ class SyncChange(object):
         if path.isbinary():
             return
 
-        contents = self.parent.parent.scminst.cat(
-            self.parent.scmrev.id, str(path))
-
-        sf = ohcount.SourceFile(filename=str(path), contents=contents)
+        sf = ohcount.SourceFile(filename=str(path), contents=self.change.cat())
         for loc in sf.locs:
-            details.insertLoc(
+            change.insertLoc(
                 language=loc.language,
                 code=loc.code,
                 comments=loc.comments,

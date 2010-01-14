@@ -5,18 +5,22 @@
 # This software may be used and distributed according to the terms of the
 # GNU General Public License version 2, incorporated herein by reference.
 
-__all__ = [ 'svn' ]
+__backends_map__ = {
+    'svn': 'xray4scm.scm.svn'
+}
 
-def createInstance(identifier, url):
+def createInstance(identifier, url, **kwargs):
     assert url
     assert identifier
 
+    fromlist = ['Change', 'Client', 'Path', 'Revision']
+
     impl = None
-    for key in __all__:
-        if identifier == key:
-            impl = __import__(key)
-            break
+    if identifier in __backends_map__:
+        impl = __import__(__backends_map__[identifier], fromlist=fromlist)
     else:
         return None
 
-    return impl.Client(url)
+    return impl.Client(url, **kwargs)
+
+__all__ = __backends_map__.keys()

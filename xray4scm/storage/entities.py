@@ -119,23 +119,23 @@ class Repository(SQLObject):
     scm = StringCol(length=45, notNone=True)
     url = StringCol(length=255, notNone=True)
     scmUrl = DatabaseIndex(scm, url, unique=True)
-    scmopts = StringCol(length=600)
+    scmOpts = PickleCol()
     updated = TimestampCol(default=datetime.now(), notNone=True)
 
-    def __init__(self, scm, url, *args, **kwargs):
-        try:
-            r = Repository.byScmUrl(scm, url)
-            if r is not None:
-                raise error.Abort(_("This repository already exists"
-                        " with id = %d.") % r.id)
-        except SQLObjectNotFound as nf:
-            pass
-        except: raise
+    def __init__(self, *args, **kwargs):
+        if 'scm' in kwargs and 'url' in kwargs:
+            try:
+                r = Repository.byScmUrl(kwargs['scm'], kwargs['url'])
+                if r is not None:
+                    raise error.Abort(_("This repository already exists"
+                            " with id = %d.") % r.id)
+            except SQLObjectNotFound as nf:
+                pass
+            except: raise
 
-        kwargs += dict(scm=scm, url=url)
         SQLObject.__init__(self, *args, **kwargs)
 
-        class __revision_getter:
+        class revision_getter:
             def __init__(self, repo):
                 self._repo = repo
 
@@ -147,7 +147,7 @@ class Repository(SQLObject):
                             Revision.q.repository == Repository.q.id)
                 ).getOne(None)
 
-        self.branch = Repository.__revision_getter(self)
+        self.branch = revision_getter(self)
 
     def getLastRev(self, default=None):
         return Repository.select(
@@ -159,7 +159,7 @@ class Repository(SQLObject):
     def markAsUpdated(self):
         self.set(updated=datetime.now())
 
-    def insertRevision(self, revno, author, log, commitdate, branches, tags, connection=None):
+    def insertRevision(self, revno, author, log, commitdate, connection=None):
         try:
             a = Author.byName(author)
         except SQLObjectNotFound as nf:
@@ -354,8 +354,12 @@ class Revision(SQLObject):
         try:
             change = Change.byRevisionPath(revision=self, path=filepath)
         except SQLObjectNotFound as nf:
-            b = Branch.fromName(branch, connection)
-            t = tag is not None and Tag.fromName(tag, connection) or None
+            b = branch is not None \
+                and Branch.fromName(branch, connection) \
+                or None
+            t = tag is not None \
+                and Tag.fromName(tag, connection) \
+                or None
             fp = FilePath.fromFilePath(filepath, connection=connection)
             try:
                 change = Change(revision=self, path=fp,
@@ -391,7 +395,7 @@ class Change(SQLObject):
     path = ForeignKey('FilePath', cascade=False)
     revisionPath = DatabaseIndex(revision, path, unique=True)
     changetype = EnumCol(enumValues=['A', 'M', 'D', 'R'])
-    branch = ForeignKey('Branch', notNone=True, cascade=True)
+    branch = ForeignKey('Branch', cascade=True)
     tag = ForeignKey('Tag', cascade=True)
 
     @staticmethod

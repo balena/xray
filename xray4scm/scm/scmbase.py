@@ -21,11 +21,15 @@ class Client(object):
         pass
 
     @abstractmethod
-    def cat(self, rev_id, path):
+    def iterrevs(self, startrev=0, endrev=0):
         pass
 
     @abstractmethod
-    def iterrevs(self, startrev=0, endrev=0):
+    def exists(self):
+        pass
+
+    @abstractmethod
+    def opts(self):
         pass
 
 class Revision(object):
@@ -47,14 +51,6 @@ class Revision(object):
     def date(self):
         pass
         
-    @abstractproperty
-    def tags(self):
-        pass
-
-    @abstractproperty
-    def branches(self):
-        pass
-
     @abstractmethod
     def iterchanges(self):
         pass
@@ -76,6 +72,18 @@ class Change(object):
 
     @abstractmethod
     def getorigin(self):
+        pass
+
+    @abstractproperty
+    def tag(self):
+        pass
+
+    @abstractproperty
+    def branch(self):
+        pass
+
+    @abstractmethod
+    def cat(self):
         pass
 
 class Path(object):

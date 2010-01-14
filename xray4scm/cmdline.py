@@ -237,9 +237,15 @@ class CmdLine(cmdln.Cmdln):
 
         self._loadConfig()
         try:
-            scminst = scm.createInstance(scmname, repos, **opts)
+            params = dict()
+            optnames = ['svn_branches_regex', 'svn_tags_regex']
+            for name in optnames:
+                attr = getattr(opts, name)
+                if attr is not None:
+                    params[name] = attr
+            scminst = scm.createInstance(scmname, repos, **params)
             if scminst is None:
-                raise error.NotImplementedError(
+                raise NotImplementedError(
                     _("No support for this SCM: '%s'") % scmname
                 )
         except:
@@ -256,7 +262,7 @@ class CmdLine(cmdln.Cmdln):
                 ) % repos
             )
 
-        params = dict(scm=scmname, scmopts=scminst.opts(), url=repos)
+        params = dict(scm=scmname, scmOpts=scminst.opts(), url=repos)
         repos = storage.Repository(**params)
 
     @alias('rmr')
