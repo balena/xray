@@ -1,1 +1,5 @@
 glob:*.pyc
+glob:test\scm\svn\.svntest
+glob:.xray
+glob:*.dot
+glob:*.orig
