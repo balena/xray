@@ -68,27 +68,28 @@ class CmdLine(cmdln.Cmdln):
     def _help_preprocess(self, help, cmdname):
         help = cmdln.Cmdln._help_preprocess(self, help, cmdname)
         preprocessors = {
-            '${scm_backend_list}': self._help_preprocess_scm_backend_list
+            '${sql_backend_list}': self._help_preprocess_sql_backend_list,
+            '${scm_backend_list}': self._help_preprocess_scm_backend_list,
         }
         for marker, preprocessor in preprocessors.items():
             if marker in help:
                 help = preprocessor(help, cmdname)
         return help
 
+    def _help_preprocess_sql_backend_list(self, help, cmdname):
+        marker = "${sql_backend_list}"
+        indent, indent_width = cmdln._get_indent(marker, help)
+        suffix = cmdln._get_trailing_whitespace(marker, help)
+        block = ', '.join(storage.__backends__)
+        help = help.replace(marker, block, 1)
+        return help
+
     def _help_preprocess_scm_backend_list(self, help, cmdname):
         marker = "${scm_backend_list}"
         indent, indent_width = cmdln._get_indent(marker, help)
         suffix = cmdln._get_trailing_whitespace(marker, help)
-
-        backends = []
-        for key in scm.__all__:
-            impl = __import__(key, globals(), locals(), [], -1)
-            desc = impl.getDescription()
-            backends.append('%s* %s: %s' %
-                (' '*indent_width, desc['name'], desc['example']))
-        block = '\n'.join(backends) + '\n'
-
-        help = help.replace(indent+marker+suffix, block, 1)
+        block = ', '.join(scm.__all__)
+        help = help.replace(marker, block, 1)
         return help
 
     def _connectToDatabase(self, sqldb):
@@ -212,133 +213,83 @@ class CmdLine(cmdln.Cmdln):
     @alias('addr')
     @cmdln.option('--force', action='store_true',
                   help='force addition of the repositories even if they are not available')
-    def do_addrepos(self, subcmd, opts, repos, *repos_list):
+    @cmdln.option('--svn-branches-regex', metavar='REGEX',
+                  help='informs to svn backend how to interpret branches (defaut: "(/trunk|/branches/[^/]+)")')
+    @cmdln.option('--svn-tags-regex', metavar='REGEX',
+                  help='informs to svn backend how to interpret tags (defaut: "/tags/[^/]+")')
+    def do_addrepos(self, subcmd, opts, scmname, repos):
         """${cmd_name}: Add repositories to be monitored
 
-        Usage: xray addrepos REPOS...
+        Usage: xray addrepos SCM REPOS
 
-        Add repositories to be monitored by XRay. Note that you need to add
-        branches to make monitoring effective (see addbranch command). The format
-        for REPOS is like the following:
+        Add repositories to be monitored by XRay.
 
-          ${scm_backend_list}"""
+        Available SCMs: ${scm_backend_list}
+
+        The format of REPOS is dependent of the SCM you are using. Check the
+        documentation of the respective SCM for more info on these URLs. Some
+        examples:
+
+          $ xray addrepos svn http://domain/path/to/repos
+          $ xray addrepos svn file:///path/to/local/repos
+
+        """
 
         self._loadConfig()
-        rs = [ repos ]
-        rs += [ r for r in repos_list ]
-        for r in rs:
-            scminst = scm.createInstance(r)
-            if not scminst:
-                self._ui.warn(_("While adding repository %s:\n") % r)
-                self._ui.warn("abort: %s\n" %
-                    _("There is no support for "
-                      "this revision control system yet."))
-                continue
-            if not opts.force:
-                try:
-                    (startrev, endrev) = scminst.getrevrange()
-                except:
-                    self._ui.warn(_("While adding repository %s:\n") % r)
-                    self._ui.warn("abort: %s\n" %
-                        _("Invalid repository or access error. "
-                          "Please check it and try again."))
-                    continue
+        try:
+            scminst = scm.createInstance(scmname, repos, **opts)
+            if scminst is None:
+                raise error.NotImplementedError(
+                    _("No support for this SCM: '%s'") % scmname
+                )
+        except:
+            raise error.Abort(
+                ( _("While adding repository %s:\n") +
+                  _("Invalid options for this repository.")
+                ) % repos
+            )
+        if not opts.force and not scminst.exists():
+            raise error.Abort(
+                ( _("While adding repository %s:\n") +
+                  _("Invalid repository or access error. "
+                    "Please check it and try again.")
+                ) % repos
+            )
 
-            repo = storage.addRepos(r)
-            self._ui.writenl(_("Added repository with id = %d.") % repo.id)
+        params = dict(scm=scmname, scmopts=scminst.opts(), url=repos)
+        repos = storage.Repository(**params)
 
     @alias('rmr')
-    def do_rmrepos(self, subcmd, opts, repos, *repos_list):
+    def do_rmrepos(self, subcmd, opts, scmname, repos):
         """${cmd_name}: Remove repositories from being monitored
 
-        Usage: xray rmrepos REPOS...
+        Usage: xray rmrepos SCM REPOS
 
-        Remove repositories from being monitored by XRay. All current
-        available branches will be removed too. This action can't be restored, so pay
-        attention.
+        Remove repositories from being monitored by XRay. All synchronized data
+        available on database will be lost. This action can't be restored, so
+        pay attention.
 
-        You can use the URI format for the repositories or the repository-id.
-        Examples:
+        Example:
 
-          $ xray rmrepos svn+http://some.host/some/path
-          $ xray rmrepos 10"""
+          $ xray rmrepos svn http://some.host/some/path"""
 
         self._loadConfig()
-        rs = [ repos ]
-        rs += [ r for r in repos_list ]
-        for r in rs:
-            try:
-                repo = storage.Repository.byArg(r)
-            except error.Abort as inst:
-                self._ui.warn(_("While removing repository %s:\n") % r)
-                self._ui.warn("abort: %s\n" % inst)
-                continue
-            except: raise
+        repos = storage.Repository.byArg(scmname, repos)
+        if repos is None:
+            raise error.Abort(_("Repository not found."))
 
-            storage.Repository.delete(repo.id)
+        storage.Repository.delete(repos.id)
 
-    @alias('addb')
-    def do_addbranch(self, subcmd, opts, repos, branch, *branch_list):
-        """${cmd_name}: Add repository branches to be monitored
-
-        Usage: xray addbranch REPOS BRANCH...
- 
-        Add branches to be monitored by XRay. Note that only after including
-        some branches XRay will actually be able to synchronize metadata.
-        
-        You can use the URI format of the repository or the repository-id.
-        Examples:
-        
-          $ xray addbranch svn+http://some.host/some/path mybranch
-          $ xray addbranch 10 mybranch"""
-
-        self._loadConfig()
-        bs = [ branch ]
-        bs += [ b for b in branch_list ]
-        r = storage.Repository.byArg(repos)
-        for b in bs:
-            storage.addBranch(r, b)
- 
-    @alias('rmb')
-    def do_rmbranch(self, subcmd, opts, repos, branch, *branch_list):
-        """${cmd_name}: Remove branches from being monitored
-
-        Usage: xray rmbranch REPOS BRANCH...
- 
-        Remove branches from being monitored by XRay.
-
-        You can use the URI format of the repository or the repository-id.
-        Examples:
-
-          $ xray rmbranch svn+http://some.host/some/path mybranch
-          $ xray rmbranch 10 mybranch"""
-
-        self._loadConfig()
-        bs = [ branch ]
-        bs += [ b for b in branch_list ]
-        r = storage.Repository.byArg(repos)
-        for b in bs:
-            storage.rmBranch(r, b)
- 
     @alias('ls', 'l')
     def do_list(self, subcmd, opts, *repos):
         """${cmd_name}: List repositories being monitored
 
-        Usage: xray list [OPTIONS] [REPOS]...
+        Usage: xray list
  
-        List repositories being monitored by XRay.
-        
-        You can use the URI format of the repository or the repository-id.
-        Examples:
-        
-          $ xray list svn+http://some.host/some/path
-          $ xray list 10
- 
-       Options:
-         ${cmd_option_list}"""
+        List repositories being monitored by XRay."""
 
         self._loadConfig()
-        for r in storage.getRepositories():
+        for r in storage.Repository.list():
             self._ui.writenl(
                 "repo-id:      %d\n"
                 "repo-url:     %s\n"
@@ -358,27 +309,26 @@ class CmdLine(cmdln.Cmdln):
                         (b.name, firstrev, lastrev))
  
     @alias('syn', 's')
-    def do_sync(self, subcmd, opts, *repos):
+    def do_sync(self, subcmd, opts, *args):
         """${cmd_name}: Synchronize metadata from repositories
 
-        Usage: xray sync [REPOS]...
+        Usage: xray sync [SCM REPOS]
  
         Synchronize metadata from repositories to XRay database.
  
-        You can use the URI format of the repository or the repository-id. If
-        you do not specify any repository-id, all registered repositories will
-        be synchronized.
+        If you omit SCM REPOS, all registered repositories will be
+        synchronized.
 
         Examples:
  
-          $ xray sync svn+http://some.host/some/path
-          $ xray sync 10"""
+          $ xray sync # synchronize all
+          $ xray sync svn http://some.host/some/path # only one"""
 
         self._loadConfig()
-        if len(repos) == 0:
-            repos = storage.getRepositories()
+        if len(args) == 0:
+            repos = storage.Repository.list()
         else:
-            repos = [storage.Repository.byArg(r) for r in repos]
+            repos = [ storage.Repository.byArg(scm=args[0], url=args[1]) ]
 
         for r in repos:
             try:
@@ -388,31 +338,16 @@ class CmdLine(cmdln.Cmdln):
             except:
                 raise
 
-    @alias('bk')
-    def do_backends(self, subcmd, opts):
-        """${cmd_name}: List available backends
-
-        Usage: xray backends
- 
-        List all available XRay backends."""
-
-        self._ui.writenl(_('-- SQL backends:')+' '+
-            ', '.join(storage.__backends__))
-        self._ui.writenl(_('-- SCM backends:')+' '+
-            ', '.join(scm.__all__))
-
     @alias('rep', 'r')
-    @option("--all", action='store_true',
-            help="report all registered repositories of database")
-    def do_report(self, subcmd, opts, *repos):
+    def do_report(self, subcmd, opts, *args):
         """${cmd_name}: Create reports from database
 
-        Usage: xray report [OPTIONS] [REPOS]...
+        Usage: xray report [SCM REPOS]
  
         Create reports from XRay database. Only metadata available on
-        current database will be used. You would want to synchronize the
-        databse first, in this case see the command 'sync'. For more
-        information about synchronizing do:
+        current database will be used. You may synchronize the database first
+        to get most recent changes. For more information about synchronizing
+        execute:
 
           $ xray help sync
 
@@ -420,10 +355,10 @@ class CmdLine(cmdln.Cmdln):
          ${cmd_option_list}"""
 
         self._loadConfig()
-        if len(repos) == 0:
-            repos = storage.getRepositories()
+        if len(args) == 0:
+            repos = storage.Repository.list()
         else:
-            repos = [storage.Repository.byArg(r) for r in repos]
+            repos = [ storage.Repository.byArg(scm=args[0], url=args[1]) ]
 
         for r in repos:
             try:

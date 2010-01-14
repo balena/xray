@@ -156,6 +156,14 @@ class Revision(scmbase.Revision):
     def date(self):
         return datetime.datetime.fromtimestamp(self._date)
 
+    @property
+    def tag(self):
+        return None
+
+    @property
+    def branch(self):
+        return None
+
     def iterchanges(self):
         for change in self._changed_paths:
             yield Change(self, change)

@@ -23,27 +23,7 @@ class Sync(object):
         self.repo    = repo
         self.ui      = ui
         self.verbose = verbose
-
-    def process(self):
-        self.ui.writenl(_("Synchronizing repo %s...") % self.repo.url)
-        for branch in self.repo.branches:
-            try:
-                SyncBranch(self, branch).process()
-            except error.Abort as inst:
-                self.ui.warn('abort: %s\n' % inst)
-                continue
-            except: raise
-        self.repo.markAsUpdated()
-
-class SyncBranch(object):
-
-    def __init__(self, parent, branch):
-        self.parent  = parent
-        self.ui      = parent.ui
-        self.verbose = parent.verbose
-        self.branch  = branch
         self.scminst = scm.createInstance(parent.repo.url)
-        self.scminst.setbranch(branch.name)
 
     def getrevrange(self):
         (startrev, endrev) = self.scminst.getrevrange()
@@ -54,7 +34,7 @@ class SyncBranch(object):
         return (startrev, endrev)
 
     def process(self):
-        self.ui.writenl("  " + _("Branch %s:") % self.branch.name)
+        self.ui.writenl(_("Synchronizing repo %s...") % self.repo.url)
         (startrev, endrev) = self.getrevrange()
         if startrev == 0 and endrev == 0:
             raise error.Abort(_("There is no revision available to sync yet."))
@@ -64,6 +44,7 @@ class SyncBranch(object):
             SyncRevision(self, scmrev).process()
         if scmrev is None:
             raise error.Abort(_("Up-to-date."))
+        self.repo.markAsUpdated()
 
 class SyncRevision(object):
 
@@ -82,11 +63,13 @@ class SyncRevision(object):
             self.ui.flush()
 
         self.trans = storage.transaction()
-        self.storrev = self.parent.branch.insertRevision(
+        self.storrev = self.parent.repo.insertRevision(
             self.scmrev.id,
             self.scmrev.author,
             self.scmrev.message,
             self.scmrev.date,
+            self.scmrev.branch,
+            self.scmrev.tag,
             connection=self.trans
         )
 

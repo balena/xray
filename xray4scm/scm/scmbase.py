@@ -50,6 +50,14 @@ class Revision(object):
     @abstractproperty
     def date(self):
         pass
+        
+    @abstractproperty
+    def tag(self):
+        pass
+
+    @abstractproperty
+    def branch(self):
+        pass
 
     @abstractmethod
     def iterchanges(self):

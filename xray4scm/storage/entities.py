@@ -17,7 +17,7 @@ from datetime import datetime
 
 __all__ = [
 'Metadata', 'Author', 'Language', 'File', 'Path', 'FilePath', 'Repository',
-'Branch', 'Revision', 'Change', 'Loc'
+'Branch', 'Tag', 'Revision', 'Change', 'Loc'
 ]
 
 class Metadata(SQLObject):
@@ -116,92 +116,190 @@ class FilePath(SQLObject):
         return fp
 
 class Repository(SQLObject):
+    scm = StringCol(length=45, notNone=True)
     url = StringCol(length=255, notNone=True)
+    scmUrl = DatabaseIndex(scm, url, unique=True)
+    scmopts = StringCol(length=600)
     updated = TimestampCol(default=datetime.now(), notNone=True)
-    branches = MultipleJoin('Branch')
+    revisions = MultipleJoin('Revision')
 
-    class __branch_getter:
-        def __init__(self, repo):
-            self._repo = repo
+    def __init__(self, scm, url, *args, **kwargs):
+        try:
+            r = Repository.byScmUrl(scm, url)
+            if r is not None:
+                raise error.Abort(_("This repository already exists"
+                        " with id = %d.") % r.id)
+        except SQLObjectNotFound as nf:
+            pass
+        except: raise
 
-        def __getitem__(self, key):
-            return Branch.select(
-                AND(Repository.q.id == self._repo.id, Branch.q.name == key),
-                join=INNERJOINOn(None, Repository, Branch.q.repository == Repository.q.id)
-            ).getOne(None)
-
-    def __init__(self, *args, **kwargs):
+        kwargs += dict(scm=scm, url=url)
         SQLObject.__init__(self, *args, **kwargs)
-        self.branch = Repository.__branch_getter(self)
+
+        class __revision_getter:
+            def __init__(self, repo):
+                self._repo = repo
+
+            def __getitem__(self, key):
+                return Revision.select(
+                    AND(Repository.q.id == self._repo.id,
+                        Revision.q.name == key),
+                    join=INNERJOINOn(Revision, Repository,
+                            Revision.q.repository == Repository.q.id)
+                ).getOne(None)
+
+        self.branch = Repository.__revision_getter(self)
 
     def getLastRev(self, default=None):
         return Repository.select(
             Repository.q.id == self.id,
-            join=[INNERJOINOn(Repository, Branch, Repository.q.id == Branch.q.repository),
-                  INNERJOINOn(None, Revision, Branch.q.id == Revision.q.branch)]
-        ).max(Revision.q.revno) or default
+            join=INNERJOINOn(Repository, Revision,
+                    Repository.q.id == Revision.q.repository)
+        ).max(Revision.q.commitdate) or default
 
     def markAsUpdated(self):
         self.set(updated=datetime.now())
 
-    @staticmethod
-    def byArg(repo):
-        if repo is None: return None
-        if isinstance(repo, Repository): return repo
-        if repo.isdigit():
-            r = Repository.select(Repository.q.id == int(repo)).getOne(None)
-        else:
-            r = Repository.select(Repository.q.url == repo).getOne(None)
-        if not r:
-            raise error.Abort(_("This repository does not exist (add with --add-repos)."))
-        return r
-
-class Branch(SQLObject):
-    repository = ForeignKey('Repository', notNone=True, cascade=True)
-    name = StringCol(length=255, notNone=True)
-    filePaths = MultipleJoin('FilePath')
-    revisions = MultipleJoin('Revision')
-    repoName = DatabaseIndex(repository, name, unique=True)
-
-    def getFirstRev(self, default=None):
-        return Branch.select(
-            Branch.q.id == self.id,
-            join=INNERJOINOn(None, Revision, Branch.q.id == Revision.q.branch)
-        ).min(Revision.q.revno) or default
-
-    def getLastRev(self, default=None):
-        return Branch.select(
-            Branch.q.id == self.id,
-            join=INNERJOINOn(None, Revision, Branch.q.id == Revision.q.branch)
-        ).max(Revision.q.revno) or default
-
-    def insertRevision(self, nr, who, msg, date, connection=None):
+    def insertBranch(self, name):
         try:
-            a = Author.byName(who)
+            b = Branch.byNameRepo(self, name)
+        except SQLObjectNotFound as nf:
+            b = Branch(repository=self, name=name)
+        except: raise
+        return b
+
+    def insertRevision(self, revno, author, log, commitdate, branch, tag, connection=None):
+        try:
+            a = Author.byName(author)
         except SQLObjectNotFound as nf:
             try:
-                a = Author(name=who, connection=connection)
+                a = Author(name=author, connection=connection)
             except DuplicateEntryError as inst:
-                a = Author.byName(who, connection=connection)
+                a = Author.byName(author, connection=connection)
             except: raise
         except: raise
+
         try:
-            r = Revision.byRevisionBranch(revno=nr, branch=self)
+            r = Revision.byRevisionRepository(revno=revno, repository=self)
         except SQLObjectNotFound as nf:
             try:
-                r = Revision(branch=self, revno=nr, author=a, log=msg,
-                    commitdate=date, connection=connection)
+                r = Revision(repository=self, revno=revno, author=author,
+                        log=log, commitdate=commitdate, connection=connection)
             except DuplicateEntryError as inst:
-                r = Revision.byRevisionBranch(revno=nr, branch=self,
+                r = Revision.byRevisionRepository(revno=revno, repository=self,
                         connection=connection)
             except: raise
         except: raise
+
+        try:
+            b = Branch.byName(name=branch)
+        except SQLObjectNotFound as nf:
+            try:
+                b = Branch(name=branch, connection=connection)
+            except DuplicateEntryError as inst:
+                t = Branch.byName(name=branch, connection=connection)
+        except: raise
+        r.set(branch=b)
+
+        if tag is not None:
+            try:
+                t = Tag.byName(name=tag)
+            except SQLObjectNotFound as nf:
+                try:
+                    t = Tag(name=tag, connection=connection)
+                except DuplicateEntryError as inst:
+                    t = Tag.byName(name=tag, connection=connection)
+            except: raise
+            r.set(tag=t)
+
         return r
+
+    def branches(self):
+        return Branch.select(
+            Repository.q.id == repository,
+            join=[INNERJOINOn(Revision, Branch,
+                    Revision.q.branch == Branch.q.id),
+                  INNERJOINOn(None, Repository,
+                    Revision.q.repository == Repository.q.id)]
+        ).distinct()
+
+    def tags(self):
+        return Tag.select(
+            Repository.q.id == repository,
+            join=[INNERJOINOn(Revision, Tag,
+                    Revision.q.tag == Tag.q.id),
+                  INNERJOINOn(None, Repository,
+                    Revision.q.repository == Repository.q.id)]
+        ).distinct()
+
+    def authors(self):
+        return Author.select(
+            Repository.q.id == repository,
+            join=[INNERJOINOn(Revision, Author,
+                    Revision.q.author == Author.q.id),
+                  INNERJOINOn(None, Repository,
+                    Revision.q.repository == Repository.q.id)]
+        ).distinct()
+
+    @staticmethod
+    def byScmUrl(scm, url):
+        return Repository.select(
+            AND(Repository.q.url == url,
+                Repository.q.scm == scm)
+        ).getOne()
+
+    @staticmethod
+    def list():
+        return list( Repository.select() )
+
+class Branch(SQLObject):
+    name = StringCol(length=255, notNone=True, alternateID=True)
+    revisions = MultipleJoin('Revision')
+
+    def selectRevisions(self, repository):
+        return Revision.select(
+            AND(Branch.q.id == self.id,
+                Repository.q.id == repository)
+            join=[INNERJOINOn(Revision, Branch,
+                    Revision.q.branch == Branch.q.id),
+                  INNERJOINOn(None, Repository,
+                    Revision.q.repository == Repository.q.id)]
+        )
+
+    def revisions(self, repository):
+        return list( self.selectRevisions(repository) )
+
+    def getFirstRev(self, repository, default=None):
+        return self.selectRevisions(repository).min(Revision.q.commitdate) \
+            or default
+
+    def getLastRev(self, repository, default=None):
+        return self.selectRevisions(repository).max(Revision.q.commitdate) \
+            or default
+
+class Tag(SQLObject):
+    name = StringCol(length=255, notNone=True, alternateID=True)
+    revision = MultipleJoin('Revision')
+
+    def selectRevisions(self, repository):
+        return Revision.select(
+            AND(Tag.q.id == self.id,
+                Repository.q.id == repository)
+            join=[INNERJOINOn(Revision, Tag,
+                    Revision.q.tag == Tag.q.id),
+                  INNERJOINOn(None, Repository,
+                    Revision.q.repository == Repository.q.id)]
+        )
+
+    def revisions(self, repository):
+        return list( self.selectRevisions(repository) )
 
 class Revision(SQLObject):
     revno = IntCol(notNone=True)
+    repository = ForeignKey('Repository', notNone=True, cascade=True)
     branch = ForeignKey('Branch', notNone=True, cascade=True)
-    revnoBranch = DatabaseIndex(revno, branch, unique=True)
+    tag = ForeignKey('Tag', cascade=True)
+    revnoRepos = DatabaseIndex(revno, repository, unique=True)
     author = ForeignKey('Author', notNone=True, cascade=False)
     log = UnicodeCol(length=600, notNone=True)
     commitdate = TimestampCol(default=datetime.now(), notNone=True)
@@ -223,12 +321,12 @@ class Revision(SQLObject):
         return changes
 
     @staticmethod
-    def byRevisionBranch(revno, branch, connection=None):
-        assert isinstance(branch, Branch)
+    def byRevisionRepository(revno, repository, connection=None):
+        assert isinstance(repository, Repository)
         assert isinstance(revno, int)
         return Revision.select(
             AND(Revision.q.revno == revno,
-                Revision.q.branch == branch),
+                Revision.q.repository == repository),
             connection=connection
         ).getOne()
 

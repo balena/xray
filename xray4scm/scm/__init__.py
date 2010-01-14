@@ -7,15 +7,16 @@
 
 __all__ = [ 'svn' ]
 
-def createInstance(url):
+def createInstance(identifier, url):
     assert url
+    assert identifier
 
     impl = None
     for key in __all__:
-        if url.startswith(key+'+') or url.startswith(key+','):
+        if identifier == key:
             impl = __import__(key)
             break
     else:
-        raise NotImplementedError("No support for this SCM schema: '%s'" % url)
+        return None
 
-    return impl.Client(url[len(key)+1:])
+    return impl.Client(url)

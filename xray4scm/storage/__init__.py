@@ -8,6 +8,7 @@
 
 from entities import *
 import xray4scm.error as error
+import pickle
 from xray4scm.i18n import _
 from sqlobject import connectionForURI
 from sqlobject.sqlbuilder import *
@@ -56,31 +57,6 @@ def checkVersion(e=error.Abort(_('Invalid database version'))):
     if not res and e:
         raise e
     return res
-
-def getRepositories():
-    return list( Repository.select() )
-
-def addRepos(repo_url):
-    r = Repository.select(Repository.q.url == repo_url).getOne(None)
-    if r:
-        raise error.Abort(_("This repository already exists"
-                " with id = %d.") % r.id)
-    return Repository(url=repo_url)
-
-def addBranch(repo, branch):
-    r = Repository.byArg(repo)
-    b = Branch.select(AND(Branch.q.repository == r.id,
-            Branch.q.name == branch)).getOne(None)
-    if b:
-        raise error.Abort(_("This branch already exists."))
-    b = Branch(repository=r, name=branch)
-
-def rmBranch(repo, branch):
-    r = Repository.byArg(repo)
-    b = Branch.select(AND(Branch.q.repository == r.id, Branch.q.name == branch)).getOne(None)
-    if not b:
-        raise error.Abort(_("Branch not found."))
-    Branch.delete(b.id)
 
 __backends__= TheURIOpener.schemeBuilders.keys()
 
