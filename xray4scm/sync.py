@@ -68,8 +68,6 @@ class SyncRevision(object):
             self.scmrev.author,
             self.scmrev.message,
             self.scmrev.date,
-            self.scmrev.branch,
-            self.scmrev.tag,
             connection=self.trans
         )
 
@@ -101,8 +99,10 @@ class SyncChange(object):
             self.ui.writenl('  %s %s' % (self.change.changetype, path))
             self.ui.flush()
 
-        details = self.parent.storrev.insertChange(
-            self.change.changetype, str(path), connection=self.parent.trans)
+        change = self.parent.storrev.insertChange(
+            self.change.changetype, str(path),
+            self.change.branch, self.change.tag,
+            connection=self.parent.trans)
 
         if self.change.changetype == 'D' or self.change.changetype == 'R':
             return

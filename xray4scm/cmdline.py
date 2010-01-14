@@ -214,9 +214,9 @@ class CmdLine(cmdln.Cmdln):
     @cmdln.option('--force', action='store_true',
                   help='force addition of the repositories even if they are not available')
     @cmdln.option('--svn-branches-regex', metavar='REGEX',
-                  help='informs to svn backend how to interpret branches (defaut: "(/trunk|/branches/[^/]+)")')
+                  help='informs to svn backend how to interpret branches (defaut: "^(/trunk|/branches/[^/]+)")')
     @cmdln.option('--svn-tags-regex', metavar='REGEX',
-                  help='informs to svn backend how to interpret tags (defaut: "/tags/[^/]+")')
+                  help='informs to svn backend how to interpret tags (defaut: "^/tags/[^/]+")')
     def do_addrepos(self, subcmd, opts, scmname, repos):
         """${cmd_name}: Add repositories to be monitored
 

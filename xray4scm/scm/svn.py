@@ -6,15 +6,20 @@
 # GNU General Public License version 2, incorporated herein by reference.
 
 import scmbase
-import pysvn, getpass, datetime
+import pysvn, getpass, datetime, re
 
 class Client(scmbase.Client):
 
-    def __init__(self, repo_url):
+    def __init__(self, repo_url,
+                 svn_branches_regex=r'^(/trunk|/branches/[^/]+)',
+                 svn_tags_regex=r'^/tags/[^/]+'):
+
         self._repo_url = repo_url
-        self._branch = ''
         self.svnclient = pysvn.Client()
         self._repo_root_url = None
+
+        self._branches_reobj = re.compile(svn_branches_regex)
+        self._tags_reobj = re.compile(svn_tags_regex)
 
         self.svnclient.callback_get_login = \
             self._get_login
@@ -49,10 +54,7 @@ class Client(scmbase.Client):
 
     @property
     def repo_url(self):
-        url = self._repo_url
-        if len(self._branch) > 0:
-            url += '/' + self._branch
-        return url
+        return self._repo_url
 
     @property
     def repo_root_url(self):
@@ -67,9 +69,6 @@ class Client(scmbase.Client):
         if len(path) > 0:
             url += '/' + path
         return url
-
-    def setbranch(self, branch):
-        self._branch = branch
 
     def getrevrange(self):
         headrev = self.svnclient.info2(
@@ -138,7 +137,30 @@ class Revision(scmbase.Revision):
         self._date          = base.date
         self._message       = base.message
         self._revno         = base.revision.number
-        self._changed_paths = base.changed_paths
+
+        # get branches, tags and changes
+        self._changes = []
+        for change in base.changed_paths:
+            (path, branch) = Revision.splitpath(change.path,
+                    self._branches_reobj)
+            if branch is not None:
+                self._changes.append( Change(self, change, path, branch=branch) )
+                continue
+            (path, tag) = Revision.splitpath(change.path,
+                    self._tags_reobj)
+            if tag is not None:
+                self._changes.append( Change(self, change, path, tag=tag) )
+                continue
+            self._changes.append( Change(self, change, path) )
+
+    @abstractmethod
+    def splitpath(path, reobj):
+        match = reobj.search(path)
+        if match is None:
+            return (path, None)
+        part = match.group(0)
+        path = path.replace(part, '', 1)
+        return (path, part)
 
     @property
     def id(self):
@@ -156,25 +178,19 @@ class Revision(scmbase.Revision):
     def date(self):
         return datetime.datetime.fromtimestamp(self._date)
 
-    @property
-    def tag(self):
-        return None
-
-    @property
-    def branch(self):
-        return None
-
     def iterchanges(self):
-        for change in self._changed_paths:
-            yield Change(self, change)
+        for change in self._changes:
+            yield change
 
 class Change(scmbase.Change):
 
-    def __init__(self, parent, base):
+    def __init__(self, parent, base, path, branch=None, tag=None):
         self.parent             = parent
-        self._path              = base.path
+        self._path              = path
         self._action            = base.action
         self._copyfrom_path     = base.copyfrom_path
+        self._branch            = branch
+        self._tag               = tag
 
         if base.copyfrom_revision:
             self._copyfrom_revision = base.copyfrom_revision.number
@@ -183,11 +199,24 @@ class Change(scmbase.Change):
 
     @property
     def path(self):
-        return Path(self, self._path)
+        prefix = self._branch
+        if prefix is None:
+            prefix = self._tag
+        if prefix is None:
+            prefix = ''
+        return Path(self, self._path, prefix+'/'+self._path)
 
     @property
     def changetype(self):
         return self._action
+
+    @property
+    def branch(self):
+        return self._branch
+
+    @property
+    def tag(self):
+        return self._tag
 
     def iscopy(self):
         return self._copyfrom_path is not None
@@ -207,9 +236,10 @@ class Change(scmbase.Change):
 
 class Path(scmbase.Path):
 
-    def __init__(self, parent, filepath):
+    def __init__(self, parent, filepath, realpath):
         self.parent    = parent
         self._filepath = filepath
+        self._realpath = realpath
 
     def isdir(self):
         change = self.parent
@@ -220,7 +250,7 @@ class Path(scmbase.Path):
         else:
             revno = revision.id
         node = client.svnclient.info2(
-            client.repo_path(str(self)),
+            client.repo_path(self._realpath),
             revision=pysvn.Revision(pysvn.opt_revision_kind.number, revno),
             recurse=False
         )[0][1]
@@ -233,7 +263,7 @@ class Path(scmbase.Path):
         revision = self.parent.parent
         client = revision.parent
         (rev, propdict) = client.svnclient.revproplist(
-            client.repo_path(self._filepath),
+            client.repo_path(self._realpath),
             pysvn.Revision(pysvn.opt_revision_kind.number, revision.id)
         )
         isbin = False #if explicit mime-type is not found assumes 'text'
@@ -247,11 +277,6 @@ class Path(scmbase.Path):
         return not self.isbinary()
 
     def __str__(self):
-        client = self.parent.parent.parent
-        filepath = self._filepath.lstrip('/')
-        if filepath.startswith(client._branch):
-            filepath = filepath.replace(client._branch, '', 1)
-            filepath = filepath.lstrip('/')
-        return '/'+filepath
+        return self._filepath
 
 # Modeline for vim: set tw=79 et ts=4:

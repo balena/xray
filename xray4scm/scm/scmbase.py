@@ -13,10 +13,6 @@ class Client(object):
     __metaclass__ = abc.ABCMeta
 
     @abstractmethod
-    def setbranch(self, branch):
-        pass
-
-    @abstractmethod
     def getrevrange(self):
         pass
 
@@ -52,11 +48,11 @@ class Revision(object):
         pass
         
     @abstractproperty
-    def tag(self):
+    def tags(self):
         pass
 
     @abstractproperty
-    def branch(self):
+    def branches(self):
         pass
 
     @abstractmethod
