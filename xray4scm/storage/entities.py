@@ -150,11 +150,11 @@ class Repository(SQLObject):
         self.branch = revision_getter(self)
 
     def getLastRev(self, default=None):
-        return Repository.select(
+        return Revision.select(
             Repository.q.id == self.id,
             join=INNERJOINOn(Repository, Revision,
                     Repository.q.id == Revision.q.repository)
-        ).max(Revision.q.date) or default
+        ).orderBy(Revision.q.date).reversed().limit(1).getOne(None) or default
 
     def markAsUpdated(self):
         self.set(updated=datetime.now())
@@ -257,7 +257,7 @@ class Repository(SQLObject):
 
 class Branch(SQLObject):
     name = StringCol(length=255, notNone=True, alternateID=True)
-    revisions = MultipleJoin('Revision')
+    changes = MultipleJoin('Change')
 
     def selectRevisions(self, repository):
         return Revision.select(
@@ -269,14 +269,14 @@ class Branch(SQLObject):
                     Change.q.branch == Branch.q.id),
                   INNERJOINOn(None, Repository,
                     Revision.q.repository == Repository.q.id)]
-        )
+        ).orderBy(Revision.q.date)
 
-    def getFirstRev(self, repository, default=None):
-        return self.selectRevisions(repository).min(Revision.q.date) \
+    def getFirstRev(self, repo, default=None):
+        return self.selectRevisions(repo).limit(1).getOne(None) \
             or default
 
-    def getLastRev(self, repository, default=None):
-        return self.selectRevisions(repository).max(Revision.q.date) \
+    def getLastRev(self, repo, default=None):
+        return self.selectRevisions(repo).reversed().limit(1).getOne(None) \
             or default
 
     @staticmethod
@@ -294,7 +294,7 @@ class Branch(SQLObject):
 
 class Tag(SQLObject):
     name = StringCol(length=255, notNone=True, alternateID=True)
-    revision = MultipleJoin('Revision')
+    changes = MultipleJoin('Change')
 
     def selectRevisions(self, repository):
         return Revision.select(
