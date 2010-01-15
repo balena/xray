@@ -1,9 +1,9 @@
 # cmdline.py - command line interpreter for XRay.
 #
-# Copyright (C) 2009 Guilherme Versiani <guibv@comunip.com.br>
+# Copyright (C) 2009-2010 Guilherme Versiani <guibv@comunip.com.br>
 #
 # This software may be used and distributed according to the terms of the
-# GNU General Public License version 2, incorporated herein by reference.
+# GNU General Public License version 3, incorporated herein by reference.
 
 import os, sys, errno, shutil
 import error, storage

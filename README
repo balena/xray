@@ -18,10 +18,16 @@ Patches can be submitted via:
 Requirements:
 -------------
 
-- cmdln >= 1.1.2
-- SQLObject >= 0.12.0
+Yes, there are some dependencies to check before installing XRay:
+
+- cmdln >= 1.1.2 for fancy command line parsing
+- SQLObject >= 0.12.0 for generic access to databases
 - pysvn for support to SVN repositories
-- ohcount >= 3.0.0 with Python extension
+- progressbar >= 2.2 for progress bar and ETA
+- pydot >= 1.0.2 for generating useful repository graphs
+- matplotlib >= 0.99.1.1 for reporting charts
+- PyYAML >= 3.09 for abstract chart configurations and output
+- ohcount Python extension >= 3.0.0
   available at http://github.com/balena/ohcount
 
 
@@ -47,18 +53,15 @@ It is possible to delegate database operations to a centralized one:
 
     $ xray init --db=mysql://user:password@host/database 
 
-Then, you add a bunch of repositories and branches:
+Then, you simply add a bunch of repositories:
 
-    $ xray addrepos svn+http://some.domain/path/to/repos
-    $ xray addbranch svn+http://some.domain/path/to/repos trunk branches/1.0
+    $ xray addrepos svn http://some.domain/path/to/repos
 
-Now it is time to get things in sync (take a time to a coffee):
+XRay imports metadata from SCM repositories to correlate data, execute faster
+queries and mix data between repositories. To synchronize repositories metadata
+execute (take a time for a coffee):
 
     $ xray sync
-
-If you want to update just one repository, do:
-
-    $ xray sync svn+http://some.domain/path/to/repos
 
 Whenever you need to create reports, do:
 
@@ -69,4 +72,4 @@ Have fun!
 
 Authors:
 --------
-Guilherme Balena Versiani - guibv at comunip.com.br
+Guilherme Balena Versiani - guibv at comunip dot com dot br

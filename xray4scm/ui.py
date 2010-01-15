@@ -1,10 +1,10 @@
 # ui.py - user interface bits for XRay
 #
 # Original author: Copyright 2005, 2006 Matt Mackall <mpm@selenic.com>
-# Modified by: Copyright (C) 2009 Guilherme Versiani <guibv@comunip.com.br>
+# Modified by: Copyright (C) 2009-2010 Guilherme Versiani <guibv@comunip.com.br>
 #
 # This software may be used and distributed according to the terms of the
-# GNU General Public License version 2, incorporated herein by reference.
+# GNU General Public License version 3, incorporated herein by reference.
 
 from i18n import _
 import errno, os, sys, tempfile, traceback
