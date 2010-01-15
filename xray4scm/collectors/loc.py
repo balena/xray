@@ -16,17 +16,17 @@ class Loc(collectorbase.Collector):
         self.comments = 'comments' in kwargs and kwargs['comments'] or False
         self.blanks = 'blanks' in kwargs and kwargs['blanks'] or False
 
-    def collect(self, branch):
+    def collect(self, repo):
         x, y1, y2, y3 = [], [], [], []
         code, comments, blanks = 0, 0, 0
-        for rev in branch.revisions:
+        for rev in repo.revisions():
             (c_code, c_comments, c_blanks) = rev.getLocDiff()
 
             code += c_code
             comments += c_comments
             blanks += c_blanks
 
-            x.append(rev.commitdate)
+            x.append(rev.date)
             y1.append(code+comments+blanks)
             y2.append(code+comments)
             y3.append(code)
@@ -39,6 +39,6 @@ class Loc(collectorbase.Collector):
         self.mode = 'fill'
         self.format_xdata = mdates.DateFormatter('%b %Y')
         self.xaxis_date = True
-        self.output = 'loc-%s.png' % branch.name.replace('/', '-')
+        self.output = 'loc-%d.png'
 
 # Modeline for vim: set tw=79 et ts=4:
