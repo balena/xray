@@ -140,10 +140,12 @@ class Revision(scmbase.Revision):
 
     def __init__(self, parent, base):
         self.parent         = parent
-        self._author        = base.author
         self._date          = base.date
         self._message       = base.message
         self._revno         = base.revision.number
+        self._author        = hasattr(base, 'author') \
+                          and base.author \
+                           or '(no author)'
 
         # get branches, tags and changes
         self._changes = []

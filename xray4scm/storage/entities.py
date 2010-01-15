@@ -149,12 +149,20 @@ class Repository(SQLObject):
 
         self.branch = revision_getter(self)
 
-    def getLastRev(self, default=None):
+    def selectRevisions(self):
         return Revision.select(
             Repository.q.id == self.id,
             join=INNERJOINOn(Repository, Revision,
                     Repository.q.id == Revision.q.repository)
-        ).orderBy(Revision.q.date).reversed().limit(1).getOne(None) or default
+        ).orderBy(Revision.q.date)
+
+    def getFirstRev(self, default=None):
+        return self.selectRevisions().limit(1).getOne(None) \
+            or default
+
+    def getLastRev(self, default=None):
+        return self.selectRevisions().reversed().limit(1).getOne(None) \
+            or default
 
     def markAsUpdated(self):
         self.set(updated=datetime.now())
@@ -216,13 +224,13 @@ class Repository(SQLObject):
                (branch is None and tag is not None) or \
                (branch is not None and tag is None)
         if branch is None and tag is None:
-            return list( Revision.select(
+            return Revision.select(
                 Repository.q.id == self,
                 join=[INNERJOINOn(Repository, Revision,
                         Repository.q.id == Revision.q.repository)]
-            ) )
+            ).lazyIter()
         if branch is not None:
-            return list( Revision.select(
+            return Revision.select(
                 AND(Repository.q.id == self,
                     Branch.q.name == branch),
                 join=[INNERJOINOn(Repository, Revision,
@@ -231,9 +239,9 @@ class Repository(SQLObject):
                         Revision.q.id == Change.q.revision),
                       INNERJOINOn(None, Branch,
                         Change.q.branch == Branch.q.id)]
-            ) )
+            ).lazyIter()
         if tag is not None:
-            return list( Revision.select(
+            return Revision.select(
                 AND(Repository.q.id == self,
                     Tag.q.name == tag),
                 join=[INNERJOINOn(Repository, Revision,
@@ -242,7 +250,7 @@ class Repository(SQLObject):
                         Revision.q.id == Change.q.revision),
                       INNERJOINOn(None, Tag,
                         Change.q.tag == Tag.q.id)]
-            ) )
+            ).lazyIter()
 
     @staticmethod
     def byScmUrl(scm, url):
@@ -253,7 +261,7 @@ class Repository(SQLObject):
 
     @staticmethod
     def list():
-        return list( Repository.select() )
+        return Repository.select().lazyIter()
 
 class Branch(SQLObject):
     name = StringCol(length=255, notNone=True, alternateID=True)
@@ -287,7 +295,7 @@ class Branch(SQLObject):
             try:
                 b = Branch(name=name, connection=connection)
             except DuplicateEntryError as inst:
-                b = Branch.byName(name=name, connection=connection)
+                b = Branch.byName(name, connection=connection)
             except: raise
         except: raise
         return b
@@ -332,23 +340,23 @@ class Revision(SQLObject):
 
     @property
     def branches(self):
-        return list( Branch.select(
+        return Branch.select(
             Revision.q.id == self,
             join=[INNERJOINOn(Revision, Change,
                     Revision.q.id == Change.q.revision),
                   INNERJOINOn(None, Branch,
                     Change.q.branch == Branch.q.id)]
-        ) )
+        ).lazyIter()
 
     @property
     def tags(self):
-        return list( Tag.select(
+        return Tag.select(
             Revision.q.id == self,
             join=[INNERJOINOn(Revision, Change,
                     Revision.q.id == Change.q.revision),
                   INNERJOINOn(None, Tag,
                     Change.q.tag == Tag.q.id)]
-        ) )
+        ).lazyIter()
 
     def insertChange(self, type, filepath, branch, tag, connection=None):
         try:
@@ -366,7 +374,7 @@ class Revision(SQLObject):
                     changetype=type, branch=b, tag=t, connection=connection)
             except DuplicateEntryError as inst:
                 change = Change.byRevisionPath(revision=self,
-                        path=filepath, branch=b, tag=t, connection=connection)
+                        path=filepath, connection=connection)
             except: raise
         except: raise
         return change
@@ -447,17 +455,33 @@ class Change(SQLObject):
         if blanks is None: blanks = 0
         return (code, comments, blanks)
 
-    def getLocDiff(self, revision, language=None):
-        code, comments, blanks = self.getLoc(language)
-        last_change = Change.select(
+    def getLastChange(self, revision):
+        return Change.select(
             AND(Change.q.path == self.path,
                 Revision.q.date < revision.date),
             join=[INNERJOINOn(Change, Revision, Change.q.revision == Revision.q.id)]
-        ).limit(1).getOne(None)
-        if last_change is None:
-            return (code, comments, blanks)
-        last_code, last_comments, last_blanks = last_change.getLoc(language)
-        return (code-last_code, comments-last_comments, blanks-last_blanks)
+        ).orderBy(Revision.q.date).reversed().limit(1).getOne(None)
+
+    def getLocDiff(self, revision, language=None):
+        if self.changetype == 'A':
+            return self.getLoc(language)
+        elif self.changetype == 'M':
+            code, comments, blanks = self.getLoc(language)
+            last_change = self.getLastChange(revision)
+            if last_change is None: # should not happen
+                return (code, comments, blanks)
+            l_code, l_comments, l_blanks = \
+                last_change.getLoc(language)
+            return (code-l_code, comments-l_comments, blanks-l_blanks)
+        elif self.changetype == 'D':
+            last_change = self.getLastChange(revision)
+            if last_change is None: # should not happen
+                return (0, 0, 0)
+            l_code, l_comments, l_blanks = \
+                last_change.getLoc(language)
+            return (-l_code, -l_comments, -l_blanks)
+        else:
+            return (0, 0, 0)
 
 class Loc(SQLObject):
     language = ForeignKey('Language', cascade=True)

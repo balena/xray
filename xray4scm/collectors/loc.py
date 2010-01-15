@@ -7,7 +7,8 @@
 
 import collectorbase
 import matplotlib.dates as mdates
-import datetime
+import datetime, time
+from progressbar import ProgressBar, Bar, ETA
 
 class Loc(collectorbase.Collector):
 
@@ -19,6 +20,15 @@ class Loc(collectorbase.Collector):
     def collect(self, repo):
         x, y1, y2, y3 = [], [], [], []
         code, comments, blanks = 0, 0, 0
+
+        lasttime = time.mktime(repo.getLastRev().date.timetuple())
+        firsttime = time.mktime(repo.getFirstRev().date.timetuple())
+        maxval = lasttime - firsttime
+
+        pbar = ProgressBar(widgets=['Loc:     ', Bar(), ' ', ETA()],
+                maxval=maxval)
+
+        pbar.start()
         for rev in repo.revisions():
             (c_code, c_comments, c_blanks) = rev.getLocDiff()
 
@@ -30,6 +40,8 @@ class Loc(collectorbase.Collector):
             y1.append(code+comments+blanks)
             y2.append(code+comments)
             y3.append(code)
+
+            pbar.update(time.mktime(rev.date.timetuple()) - firsttime)
 
         self.data = [
             (x, y1, dict(label='blanks',color='#96afd6')),

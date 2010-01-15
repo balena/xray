@@ -108,9 +108,7 @@ class SyncChange(object):
 
         if self.change.changetype == 'D' or self.change.changetype == 'R':
             return
-        if path.isdir():
-            return
-        if path.isbinary():
+        if path.isdir() or path.isbinary():
             return
 
         sf = ohcount.SourceFile(filename=str(path), contents=self.change.cat())
