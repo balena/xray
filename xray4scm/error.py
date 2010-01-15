@@ -15,4 +15,7 @@ class SignalInterrupt(KeyboardInterrupt):
 class Abort(Exception):
     """Raised if a command needs to print an error and exit."""
 
+class ScmError(Exception):
+    """Raised when some SCM error occurs."""
+
 # Modeline for vim: set tw=79 et ts=4:

@@ -26,17 +26,18 @@ class Sync(object):
         self.scminst = scm.createInstance(repo.scm, repo.url, **repo.scmOpts)
 
     def getrevrange(self):
+        # TODO: use dates instead of revision numbers.
         start, end = 0, 0
         (startrev, endrev) = self.scminst.getrevrange()
         if startrev != None and endrev != None:
             start, end = startrev.revno, endrev.revno
             dbstartrev = self.repo.getLastRev()
             if dbstartrev is not None:
-                start = dbstartrev.revno+1 # TODO
+                start = dbstartrev.revno+1
         return start, end
 
     def process(self):
-        self.ui.writenl(_("Synchronizing repo %s...") % self.repo.url)
+        self.ui.writenl(_("Synchronizing %s...") % self.repo.url)
         (startrev, endrev) = self.getrevrange()
         if startrev == 0 and endrev == 0:
             raise error.Abort(_("There is no revision available to sync yet."))

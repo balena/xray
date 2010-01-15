@@ -341,6 +341,8 @@ class CmdLine(cmdln.Cmdln):
                 sync.execute(r, self._ui, self.options.verbose)
             except error.Abort as inst:
                 self._ui.warn("abort: %s\n" % inst)
+            except error.ScmError as inst:
+                self._ui.warn("SCM error: %s\n" % inst)
             except:
                 raise
 

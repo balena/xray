@@ -6,6 +6,7 @@
 # GNU General Public License version 2, incorporated herein by reference.
 
 import scmbase
+import xray4scm.error as error
 import pysvn, getpass, datetime, re
 
 class Client(scmbase.Client):
@@ -61,8 +62,12 @@ class Client(scmbase.Client):
     @property
     def repo_root_url(self):
         if self._repo_root_url is None:
-            self._repo_root_url = \
-                self.svnclient.root_url_from_path(self._repo_url)
+            try:
+                self._repo_root_url = \
+                    self.svnclient.root_url_from_path(self._repo_url)
+            except pysvn.ClientError as inst:
+                raise error.ScmError(str(inst))
+            except: raise
         return self._repo_root_url
 
     def repo_path(self, path):
@@ -73,24 +78,28 @@ class Client(scmbase.Client):
         return url
 
     def getrevrange(self):
-        headrev = self.svnclient.info2(
-            self.repo_url,
-            recurse=False
-        )[0][1].last_changed_rev
+        try:
+            headrev = self.svnclient.info2(
+                self.repo_url,
+                recurse=False
+            )[0][1].last_changed_rev
 
-        firstrevdate = self.svnclient.info2(
-            self.repo_root_url,
-            revision=pysvn.Revision(pysvn.opt_revision_kind.number, 1),
-            recurse=False
-        )[0][1].last_changed_date
+            firstrevdate = self.svnclient.info2(
+                self.repo_root_url,
+                revision=pysvn.Revision(pysvn.opt_revision_kind.number, 1),
+                recurse=False
+            )[0][1].last_changed_date
 
-        startrev = self.svnclient.log(
-            self.repo_url,
-            revision_start=pysvn.Revision(pysvn.opt_revision_kind.date, firstrevdate),
-            revision_end=headrev,
-            discover_changed_paths=False,
-            limit=1
-        )
+            startrev = self.svnclient.log(
+                self.repo_url,
+                revision_start=pysvn.Revision(pysvn.opt_revision_kind.date, firstrevdate),
+                revision_end=headrev,
+                discover_changed_paths=False,
+                limit=1
+            )
+        except pysvn.ClientError as inst:
+            raise error.ScmError(str(inst))
+        except: raise
 
         if startrev == None or len(startrev) == 0:
             return (None, None)
@@ -104,13 +113,17 @@ class Client(scmbase.Client):
         return True
 
     def _getrev(self, revno, detailedLog=True):
-        return self.svnclient.log(
-            self.repo_url,
-            revision_start=pysvn.Revision(pysvn.opt_revision_kind.number, revno),
-            revision_end=pysvn.Revision(pysvn.opt_revision_kind.number, revno),
-            discover_changed_paths=detailedLog,
-            limit=1,
-        )[0]
+        try:
+            return self.svnclient.log(
+                self.repo_url,
+                revision_start=pysvn.Revision(pysvn.opt_revision_kind.number, revno),
+                revision_end=pysvn.Revision(pysvn.opt_revision_kind.number, revno),
+                discover_changed_paths=detailedLog,
+                limit=1,
+            )[0]
+        except pysvn.ClientError as inst:
+            raise error.ScmError(str(inst))
+        except: raise
 
     def getrev(self, revno, detailedLog=True):
         return Revision(self, self._getrev(revno, detailedLog))
@@ -122,19 +135,23 @@ class Client(scmbase.Client):
         )
 
     def iterrevs(self, startrev=0, endrev=0, detailedLog=True, cache=1):
-        while (startrev <= endrev):
-            revisions = self.svnclient.log(
-                self.repo_url,
-                revision_start=pysvn.Revision(pysvn.opt_revision_kind.number, startrev),
-                revision_end=pysvn.Revision(pysvn.opt_revision_kind.number, endrev),
-                discover_changed_paths=detailedLog,
-                limit=cache,
-            )
-            if len(revisions) == 0:
-                break
-            startrev = revisions[-1].revision.number+1
-            for revision in revisions:
-                yield Revision(self, revision)
+        try:
+            while (startrev <= endrev):
+                revisions = self.svnclient.log(
+                    self.repo_url,
+                    revision_start=pysvn.Revision(pysvn.opt_revision_kind.number, startrev),
+                    revision_end=pysvn.Revision(pysvn.opt_revision_kind.number, endrev),
+                    discover_changed_paths=detailedLog,
+                    limit=cache,
+                )
+                if len(revisions) == 0:
+                    break
+                startrev = revisions[-1].revision.number+1
+                for revision in revisions:
+                    yield Revision(self, revision)
+        except pysvn.ClientError as inst:
+            raise error.ScmError(str(inst))
+        except: raise
 
 class Revision(scmbase.Revision):
 
@@ -234,11 +251,15 @@ class Change(scmbase.Change):
         return (self._copyFromPath(), self._copyFromRevision())
 
     def cat(self):
-        return self.parent.parent.svnclient.cat(
-            self.parent.parent.repo_path(self.path._realpath),
-            revision=pysvn.Revision(pysvn.opt_revision_kind.number,
-                        self.parent.revno)
-        )
+        try:
+            return self.parent.parent.svnclient.cat(
+                self.parent.parent.repo_path(self.path._realpath),
+                revision=pysvn.Revision(pysvn.opt_revision_kind.number,
+                            self.parent.revno)
+            )
+        except pysvn.ClientError as inst:
+            raise error.ScmError(str(inst))
+        except: raise
 
     def _copyFromPath(self):
         if self._copyfrom_path is None:
@@ -265,11 +286,15 @@ class Path(scmbase.Path):
             revno = revision.revno-1
         else:
             revno = revision.revno
-        node = client.svnclient.info2(
-            client.repo_path(self._realpath),
-            revision=pysvn.Revision(pysvn.opt_revision_kind.number, revno),
-            recurse=False
-        )[0][1]
+        try:
+            node = client.svnclient.info2(
+                client.repo_path(self._realpath),
+                revision=pysvn.Revision(pysvn.opt_revision_kind.number, revno),
+                recurse=False
+            )[0][1]
+        except pysvn.ClientError as inst:
+            raise error.ScmError(str(inst))
+        except: raise
         return node.kind == pysvn.node_kind.dir
 
     def isfile(self):
@@ -278,10 +303,14 @@ class Path(scmbase.Path):
     def isbinary(self):
         revision = self.parent.parent
         client = revision.parent
-        (rev, propdict) = client.svnclient.revproplist(
-            client.repo_path(self._realpath),
-            pysvn.Revision(pysvn.opt_revision_kind.number, revision.revno)
-        )
+        try:
+            (rev, propdict) = client.svnclient.revproplist(
+                client.repo_path(self._realpath),
+                pysvn.Revision(pysvn.opt_revision_kind.number, revision.revno)
+            )
+        except pysvn.ClientError as inst:
+            raise error.ScmError(str(inst))
+        except: raise
         isbin = False #if explicit mime-type is not found assumes 'text'
         if 'svn:mime-type' in propdict:
             fmimetype = propdict['svn:mime-type']

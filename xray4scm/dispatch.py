@@ -58,6 +58,9 @@ def _runcatch(ui, args):
     except error.Abort as inst:
         ui.warn("abort: %s\n" % inst)
         return -1
+    except error.ScmError as inst:
+        self._ui.warn("SCM error: %s\n" % inst)
+        return -1
     except error.SignalInterrupt:
         ui.warn(_("killed!\n"))
     except ImportError, inst:
