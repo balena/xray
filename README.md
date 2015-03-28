@@ -1,6 +1,3 @@
--*- markdown -*-
-
-
 XRay -- Coding Analysis for SCMs
 ================================
 
